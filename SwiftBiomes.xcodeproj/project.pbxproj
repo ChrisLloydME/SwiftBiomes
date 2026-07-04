@@ -6,6 +6,10 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6EA141012FF98000008CA67F /* CubiomesCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6EA141002FF98000008CA67F /* CubiomesCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		6EA140172FF9754C008CA67F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -51,6 +55,7 @@
 		6EA140032FF9754A008CA67F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				6EA141012FF98000008CA67F /* CubiomesCore in Frameworks */,
 			);
 		};
 		6EA140132FF9754C008CA67F /* Frameworks */ = {
@@ -103,6 +108,9 @@
 				6EA140082FF9754A008CA67F /* SwiftBiomes */,
 			);
 			name = SwiftBiomes;
+			packageProductDependencies = (
+				6EA141002FF98000008CA67F /* CubiomesCore */,
+			);
 			productName = SwiftBiomes;
 			productReference = 6EA140062FF9754A008CA67F /* SwiftBiomes.app */;
 			productType = "com.apple.product-type.application";
@@ -181,6 +189,9 @@
 			);
 			mainGroup = 6EA13FFD2FF9754A008CA67F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6EA140FF2FF98000008CA67F /* XCLocalSwiftPackageReference "../CubiomesCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6EA140072FF9754A008CA67F /* Products */;
 			projectDirPath = "";
@@ -393,6 +404,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "SwiftBiomes/SwiftBiomes-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -428,6 +440,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "SwiftBiomes/SwiftBiomes-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -549,6 +562,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		6EA140FF2FF98000008CA67F /* XCLocalSwiftPackageReference "../CubiomesCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../CubiomesCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6EA141002FF98000008CA67F /* CubiomesCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6EA140FF2FF98000008CA67F /* XCLocalSwiftPackageReference "../CubiomesCore" */;
+			productName = CubiomesCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6EA13FFE2FF9754A008CA67F /* Project object */;
 	validationLevel = 1;
