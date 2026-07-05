@@ -112,6 +112,10 @@ final class MainSplitViewController: NSSplitViewController {
             self?.mapView.overlayEnabled = enabled
         }
 
+        mapView.onStructureOverlayStatusChanged = { [weak self] status in
+            self?.inspectorController.updateStructureOverlay(status: status)
+        }
+
         mapView.onCoordinateSelected = { [weak self] x, z in
             guard let self else {
                 return

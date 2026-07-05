@@ -6,7 +6,7 @@ final class InspectorViewController: NSViewController {
     private let biomeIDLabel = NSTextField(labelWithString: "-")
     private let coordinateLabel = NSTextField(labelWithString: "-")
     private let settingsLabel = NSTextField(wrappingLabelWithString: "-")
-    private let overlayLabel = NSTextField(wrappingLabelWithString: CubiomesStructureOverlayProvider().limitation ?? "")
+    private let overlayLabel = NSTextField(wrappingLabelWithString: "Structures off")
 
     override func loadView() {
         view = NSView()
@@ -41,6 +41,24 @@ final class InspectorViewController: NSViewController {
             statusLabel.stringValue = message
             biomeNameLabel.stringValue = "-"
             biomeIDLabel.stringValue = "-"
+        }
+    }
+
+    func updateStructureOverlay(status: StructureOverlayStatus) {
+        switch status {
+        case .disabled:
+            overlayLabel.stringValue = "Structures off"
+        case .loading:
+            overlayLabel.stringValue = "Loading structures..."
+        case .loaded(let count):
+            overlayLabel.stringValue = "\(count) real structures in the visible area."
+        case .empty:
+            overlayLabel.stringValue = "No structures found in the visible area."
+        case .selected(let point):
+            let viability = point.isViable ? "viable" : "candidate"
+            overlayLabel.stringValue = "\(point.label), \(viability), X \(point.x), Z \(point.z)"
+        case .failed(let message):
+            overlayLabel.stringValue = message
         }
     }
 

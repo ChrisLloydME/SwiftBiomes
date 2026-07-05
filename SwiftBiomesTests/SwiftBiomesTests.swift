@@ -103,7 +103,63 @@ struct SwiftBiomesTests {
         #expect(BiomeMapRenderer.sampleScale(for: 0.05) == 16)
         #expect(BiomeMapRenderer.sampleScale(for: 0.01) == 64)
         #expect(BiomeMapRenderer.sampleScale(for: 0.005) == 256)
-        #expect(BiomeMapRenderer.sampleScale(for: 0.002) == 1024)
+        #expect(BiomeMapRenderer.sampleScale(for: 0.002) == 256)
+    }
+
+    @Test func cubiomesBiomeGridKeepsExpectedRowOrder() throws {
+        let service = CubiomesBiomeService()
+        let request = BiomeGridDisplayRequest(
+            settings: .sample,
+            originX: 0,
+            originZ: 0,
+            width: 2,
+            height: 2,
+            scale: 1,
+            y: 63
+        )
+
+        let result = try service.biomeGrid(for: request)
+        let originID = try service.biome(for: .init(settings: .sample, x: 0, z: 0)).id
+        let eastID = try service.biome(for: .init(settings: .sample, x: 1, z: 0)).id
+        let southID = try service.biome(for: .init(settings: .sample, x: 0, z: 1)).id
+        let southEastID = try service.biome(for: .init(settings: .sample, x: 1, z: 1)).id
+
+        #expect(result.ids.count == 4)
+        #expect(result.ids[0] == originID)
+        #expect(result.ids[1] == eastID)
+        #expect(result.ids[2] == southID)
+        #expect(result.ids[3] == southEastID)
+    }
+
+    @Test func structureOverlayProviderReturnsRealQueryStatus() {
+        let provider = CubiomesStructureOverlayProvider()
+        let result = provider.points(
+            for: .sample,
+            visibleRect: BiomeMapVisibleRect(minX: -4096, minZ: -4096, maxX: 4096, maxZ: 4096)
+        )
+
+        switch result.status {
+        case .loaded(let count):
+            #expect(count == result.points.count)
+            #expect(result.points.allSatisfy { $0.label.isEmpty == false })
+        case .empty:
+            #expect(result.points.isEmpty)
+        case .failed(let message):
+            Issue.record("Structure query failed: \(message)")
+        default:
+            Issue.record("Unexpected structure status: \(result.status)")
+        }
+    }
+
+    @Test func structureOverlayCacheKeyIncludesDimension() {
+        var netherSettings = WorldSettings.sample
+        netherSettings.dimension = .nether
+        let rect = BiomeMapVisibleRect(minX: -128, minZ: -128, maxX: 128, maxZ: 128)
+
+        let overworldKey = StructureOverlayCacheKey(settings: .sample, rect: rect)
+        let netherKey = StructureOverlayCacheKey(settings: netherSettings, rect: rect)
+
+        #expect(overworldKey.cacheKey != netherKey.cacheKey)
     }
 
     @Test func validationRejectsInvalidCoordinate() {

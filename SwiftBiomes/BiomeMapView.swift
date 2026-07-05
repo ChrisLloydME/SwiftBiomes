@@ -11,12 +11,24 @@ final class BiomeMapView: NSView {
 
     var overlayEnabled = false {
         didSet {
+            if overlayEnabled {
+                requestVisibleStructures()
+            } else {
+                structureGeneration += 1
+                pendingStructureKey = nil
+                visibleStructures = []
+                selectedStructure = nil
+                structureStatus = .disabled
+                structureQueue.cancelAllOperations()
+                onStructureOverlayStatusChanged?(structureStatus)
+            }
             needsDisplay = true
         }
     }
 
     var onCoordinateSelected: ((Int32, Int32) -> Void)?
     var onVisibleCoordinateChanged: ((Int32, Int32) -> Void)?
+    var onStructureOverlayStatusChanged: ((StructureOverlayStatus) -> Void)?
 
     private let renderer = BiomeMapRenderer()
     private let cache = BiomeTileCache(limit: 512)
@@ -27,8 +39,20 @@ final class BiomeMapView: NSView {
         queue.maxConcurrentOperationCount = 4
         return queue
     }()
+    private let structureProvider: any StructureOverlayProviding = CubiomesStructureOverlayProvider()
+    private let structureQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "SwiftBiomes.StructureOverlay"
+        queue.qualityOfService = .userInitiated
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
 
     private var pendingKeys = Set<String>()
+    private var pendingStructureKey: String?
+    private var visibleStructures: [StructureOverlayPoint] = []
+    private var selectedStructure: StructureOverlayPoint?
+    private var structureStatus: StructureOverlayStatus = .disabled
     private var centerX: Double = 0
     private var centerZ: Double = 0
     private var pixelsPerBlock: Double = 2.0
@@ -37,6 +61,7 @@ final class BiomeMapView: NSView {
     private var dragStartPoint: NSPoint?
     private var dragStartCenter: CGPoint = .zero
     private var renderGeneration = 0
+    private var structureGeneration = 0
 
     override var isFlipped: Bool {
         true
@@ -55,6 +80,7 @@ final class BiomeMapView: NSView {
 
     deinit {
         renderQueue.cancelAllOperations()
+        structureQueue.cancelAllOperations()
     }
 
     func centerOnOrigin() {
@@ -74,9 +100,17 @@ final class BiomeMapView: NSView {
 
     func reloadMap() {
         renderGeneration += 1
+        structureGeneration += 1
         pendingKeys.removeAll()
+        pendingStructureKey = nil
+        visibleStructures = []
+        selectedStructure = nil
         renderQueue.cancelAllOperations()
+        structureQueue.cancelAllOperations()
         cache.removeAll()
+        if overlayEnabled {
+            requestVisibleStructures()
+        }
         needsDisplay = true
     }
 
@@ -87,6 +121,7 @@ final class BiomeMapView: NSView {
         drawTiles()
         drawGrid()
         drawCrosshair()
+        drawStructureOverlay()
         drawOverlayNotice()
     }
 
@@ -104,12 +139,21 @@ final class BiomeMapView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         centerX = dragStartCenter.x - Double(point.x - start.x) / pixelsPerBlock
         centerZ = dragStartCenter.y - Double(point.y - start.y) / pixelsPerBlock
+        selectedStructure = nil
         needsDisplay = true
         notifyCenter()
     }
 
     override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        if overlayEnabled, let structure = nearestStructure(to: point, maximumDistance: 12) {
+            selectedStructure = structure
+            structureStatus = .selected(structure)
+            onStructureOverlayStatusChanged?(structureStatus)
+            needsDisplay = true
+            dragStartPoint = nil
+            return
+        }
         let world = worldCoordinate(at: point)
         onCoordinateSelected?(world.x, world.z)
         dragStartPoint = nil
@@ -118,6 +162,7 @@ final class BiomeMapView: NSView {
     override func scrollWheel(with event: NSEvent) {
         centerX -= Double(event.scrollingDeltaX) / pixelsPerBlock
         centerZ -= Double(event.scrollingDeltaY) / pixelsPerBlock
+        selectedStructure = nil
         needsDisplay = true
         notifyCenter()
     }
@@ -133,6 +178,7 @@ final class BiomeMapView: NSView {
         if previousScale != nextScale {
             cancelPendingRenderRequests()
         }
+        selectedStructure = nil
         needsDisplay = true
     }
 
@@ -154,7 +200,7 @@ final class BiomeMapView: NSView {
     private func fallbackScales(for activeScale: Int) -> [Int] {
         var scales: [Int] = []
         var scale = activeScale * 4
-        while scale <= 1024 {
+        while scale <= 256 {
             scales.append(scale)
             scale *= 4
         }
@@ -272,7 +318,23 @@ final class BiomeMapView: NSView {
             return
         }
 
-        let text = "Structure overlay API pending"
+        requestVisibleStructures()
+
+        let text: String
+        switch structureStatus {
+        case .disabled:
+            return
+        case .loading:
+            text = "Loading structures..."
+        case .loaded(let count):
+            text = "\(count) structures in view"
+        case .empty:
+            text = "No structures in view"
+        case .selected(let point):
+            text = "\(point.label) at X \(point.x), Z \(point.z)"
+        case .failed(let message):
+            text = message
+        }
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 12, weight: .medium),
             .foregroundColor: NSColor.secondaryLabelColor
@@ -280,6 +342,76 @@ final class BiomeMapView: NSView {
         let size = text.size(withAttributes: attributes)
         let rect = NSRect(x: bounds.maxX - size.width - 16, y: bounds.minY + 12, width: size.width, height: size.height)
         text.draw(in: rect, withAttributes: attributes)
+    }
+
+    private func drawStructureOverlay() {
+        guard overlayEnabled else {
+            return
+        }
+
+        for point in visibleStructures {
+            let screenPoint = pointForWorld(x: Double(point.x), z: Double(point.z))
+            let selected = point == selectedStructure
+            let radius: CGFloat = selected ? 6 : 4
+            let rect = NSRect(
+                x: screenPoint.x - radius,
+                y: screenPoint.y - radius,
+                width: radius * 2,
+                height: radius * 2
+            )
+            let path = NSBezierPath(ovalIn: rect)
+            StructureOverlayStyle.color(for: point.type).setFill()
+            path.fill()
+            NSColor.windowBackgroundColor.withAlphaComponent(selected ? 0.95 : 0.75).setStroke()
+            path.lineWidth = selected ? 2 : 1
+            path.stroke()
+        }
+    }
+
+    private func requestVisibleStructures() {
+        guard overlayEnabled else {
+            return
+        }
+
+        let visible = visibleWorldRect(paddingRatio: 0.2)
+        let key = StructureOverlayCacheKey(settings: settings, rect: visible)
+        guard pendingStructureKey != key.cacheKey else {
+            return
+        }
+
+        pendingStructureKey = key.cacheKey
+        structureStatus = .loading
+        onStructureOverlayStatusChanged?(structureStatus)
+        let generation = structureGeneration
+        let provider = structureProvider
+
+        structureQueue.cancelAllOperations()
+        structureQueue.addOperation { [weak self] in
+            let result = provider.points(for: key.settings, visibleRect: key.rect)
+            OperationQueue.main.addOperation {
+                guard let self, generation == self.structureGeneration else {
+                    return
+                }
+
+                self.visibleStructures = result.points
+                self.selectedStructure = nil
+                self.structureStatus = result.status
+                self.onStructureOverlayStatusChanged?(result.status)
+                self.needsDisplay = true
+            }
+        }
+    }
+
+    private func nearestStructure(to point: NSPoint, maximumDistance: CGFloat) -> StructureOverlayPoint? {
+        var nearest: (point: StructureOverlayPoint, distance: CGFloat)?
+        for structure in visibleStructures {
+            let screenPoint = pointForWorld(x: Double(structure.x), z: Double(structure.z))
+            let distance = hypot(point.x - screenPoint.x, point.y - screenPoint.y)
+            if distance <= maximumDistance, nearest == nil || distance < nearest!.distance {
+                nearest = (structure, distance)
+            }
+        }
+        return nearest?.point
     }
 
     private func visibleWorldRect(paddingRatio: Double = 0) -> BiomeMapVisibleRect {
@@ -338,5 +470,26 @@ final class BiomeMapView: NSView {
 
     private func notifyCenter() {
         onVisibleCoordinateChanged?(Int32(clamping: Int(centerX.rounded())), Int32(clamping: Int(centerZ.rounded())))
+    }
+}
+
+private enum StructureOverlayStyle {
+    static func color(for type: StructureOverlayType) -> NSColor {
+        switch type {
+        case .village, .outpost:
+            return NSColor.systemGreen
+        case .desertPyramid, .jungleTemple, .swampHut, .igloo:
+            return NSColor.systemYellow
+        case .monument, .treasure:
+            return NSColor.systemBlue
+        case .mansion, .ancientCity, .stronghold:
+            return NSColor.systemPurple
+        case .ruinedPortal, .fortress, .bastion:
+            return NSColor.systemRed
+        case .endCity:
+            return NSColor.systemTeal
+        case .mineshaft, .slimeChunk:
+            return NSColor.systemOrange
+        }
     }
 }

@@ -88,17 +88,15 @@ final class BiomeMapRenderer {
     static let tilePixelSize = 128
 
     private let service: any BiomeProviding
-    private let useBatchRenderer: Bool
 
     init(service: any BiomeProviding = CubiomesBiomeService()) {
         self.service = service
-        self.useBatchRenderer = service is CubiomesBiomeService
     }
 
     func renderTile(key: BiomeMapTileKey) -> BiomeMapTile {
         let originX = key.tileX * key.tileWorldSize
         let originZ = key.tileZ * key.tileWorldSize
-        if useBatchRenderer, let tile = renderBatchTile(key: key, originX: originX, originZ: originZ) {
+        if let tile = renderBatchTile(key: key, originX: originX, originZ: originZ) {
             return tile
         }
 
@@ -121,7 +119,7 @@ final class BiomeMapRenderer {
         if pixelsPerBlock > 0.00390625 {
             return 256
         }
-        return 1024
+        return 256
     }
 
     static func tileWorldSize(for pixelsPerBlock: Double) -> Int {
@@ -133,33 +131,24 @@ final class BiomeMapRenderer {
     }
 
     private func renderBatchTile(key: BiomeMapTileKey, originX: Int, originZ: Int) -> BiomeMapTile? {
-        let biomeIDCount = key.pixelSize * key.pixelSize
-        var biomeIDs = [Int32](repeating: -1, count: biomeIDCount)
+        let request = BiomeGridDisplayRequest(
+            settings: key.settings,
+            originX: Int32(clamping: originX / key.sampleScale),
+            originZ: Int32(clamping: originZ / key.sampleScale),
+            width: key.pixelSize,
+            height: key.pixelSize,
+            scale: key.sampleScale,
+            y: 63
+        )
 
-        let result = biomeIDs.withUnsafeMutableBufferPointer { buffer in
-            SBBiomesGenerateBiomeIDs(
-                key.settings.version.version.rawValue,
-                key.settings.seed,
-                key.settings.dimension.dimension.rawValue,
-                Int32(clamping: key.sampleScale),
-                Int32(clamping: originX / key.sampleScale),
-                Int32(clamping: originZ / key.sampleScale),
-                Int32(clamping: key.pixelSize),
-                Int32(clamping: key.pixelSize),
-                key.sampleScale > 1 ? 63 >> 2 : 63,
-                buffer.baseAddress,
-                Int32(clamping: biomeIDCount)
-            )
-        }
-
-        guard result == 0 else {
+        guard let grid = try? service.biomeGrid(for: request), grid.ids.count == key.pixelSize * key.pixelSize else {
             return nil
         }
 
         var pixels = [UInt8](repeating: 0, count: key.pixelSize * key.pixelSize * 4)
         for py in 0..<key.pixelSize {
             for px in 0..<key.pixelSize {
-                let biomeID = biomeIDs[py * key.pixelSize + px]
+                let biomeID = grid.ids[py * key.pixelSize + px]
                 let rgba = BiomePalette.rgba(forBiomeID: biomeID)
                 let offset = (py * key.pixelSize + px) * 4
                 pixels[offset] = rgba.red
