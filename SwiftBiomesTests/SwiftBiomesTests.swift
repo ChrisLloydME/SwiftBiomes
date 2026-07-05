@@ -135,13 +135,15 @@ struct SwiftBiomesTests {
         let provider = CubiomesStructureOverlayProvider()
         let result = provider.points(
             for: .sample,
-            visibleRect: BiomeMapVisibleRect(minX: -4096, minZ: -4096, maxX: 4096, maxZ: 4096)
+            visibleRect: BiomeMapVisibleRect(minX: -4096, minZ: -4096, maxX: 4096, maxZ: 4096),
+            types: Set(StructureOverlayType.allCases)
         )
 
         switch result.status {
         case .loaded(let count):
             #expect(count == result.points.count)
             #expect(result.points.allSatisfy { $0.label.isEmpty == false })
+            #expect(result.points.allSatisfy { $0.isViable })
         case .empty:
             #expect(result.points.isEmpty)
         case .failed(let message):
@@ -151,15 +153,51 @@ struct SwiftBiomesTests {
         }
     }
 
+    @Test func structureOverlayProviderHidesNonViableCandidates() {
+        let provider = CubiomesStructureOverlayProvider()
+        let result = provider.points(
+            for: .sample,
+            visibleRect: BiomeMapVisibleRect(minX: -8192, minZ: -8192, maxX: 8192, maxZ: 8192),
+            types: [.village, .desertPyramid]
+        )
+
+        #expect(result.points.allSatisfy { $0.isViable })
+    }
+
     @Test func structureOverlayCacheKeyIncludesDimension() {
         var netherSettings = WorldSettings.sample
         netherSettings.dimension = .nether
         let rect = BiomeMapVisibleRect(minX: -128, minZ: -128, maxX: 128, maxZ: 128)
 
-        let overworldKey = StructureOverlayCacheKey(settings: .sample, rect: rect)
-        let netherKey = StructureOverlayCacheKey(settings: netherSettings, rect: rect)
+        let overworldKey = StructureOverlayCacheKey(settings: .sample, rect: rect, types: [.village])
+        let netherKey = StructureOverlayCacheKey(settings: netherSettings, rect: rect, types: [.village])
 
         #expect(overworldKey.cacheKey != netherKey.cacheKey)
+    }
+
+    @Test func structureOverlayCacheKeyIncludesSelectedTypes() {
+        let rect = BiomeMapVisibleRect(minX: -128, minZ: -128, maxX: 128, maxZ: 128)
+
+        let villageKey = StructureOverlayCacheKey(settings: .sample, rect: rect, types: [.village])
+        let monumentKey = StructureOverlayCacheKey(settings: .sample, rect: rect, types: [.monument])
+
+        #expect(villageKey.cacheKey != monumentKey.cacheKey)
+    }
+
+    @Test func structureOverlayProviderHonorsEmptyTypeSelection() {
+        let provider = CubiomesStructureOverlayProvider()
+        let result = provider.points(
+            for: .sample,
+            visibleRect: BiomeMapVisibleRect(minX: -4096, minZ: -4096, maxX: 4096, maxZ: 4096),
+            types: []
+        )
+
+        #expect(result.points.isEmpty)
+        if case .empty = result.status {
+            #expect(true)
+        } else {
+            Issue.record("Expected empty status, got \(result.status)")
+        }
     }
 
     @Test func validationRejectsInvalidCoordinate() {

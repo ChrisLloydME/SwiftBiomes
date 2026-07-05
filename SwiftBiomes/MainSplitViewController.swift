@@ -112,6 +112,10 @@ final class MainSplitViewController: NSSplitViewController {
             self?.mapView.overlayEnabled = enabled
         }
 
+        sidebarController.onStructureTypesChanged = { [weak self] types in
+            self?.mapView.selectedStructureTypes = types
+        }
+
         mapView.onStructureOverlayStatusChanged = { [weak self] status in
             self?.inspectorController.updateStructureOverlay(status: status)
         }

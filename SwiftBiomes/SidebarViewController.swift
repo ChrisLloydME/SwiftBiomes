@@ -3,6 +3,7 @@ import AppKit
 final class SidebarViewController: NSViewController {
     var onQueryRequested: ((String, String, String, Int, Int) -> Void)?
     var onOverlayChanged: ((Bool) -> Void)?
+    var onStructureTypesChanged: ((Set<StructureOverlayType>) -> Void)?
 
     private var contentContainer: NSView!
     private let seedField = NSTextField(string: "\(WorldSettings.sample.seed)")
@@ -11,12 +12,23 @@ final class SidebarViewController: NSViewController {
     private let versionPopup = NSPopUpButton()
     private let dimensionControl = NSSegmentedControl(labels: DimensionOption.allCases.map(\.rawValue), trackingMode: .selectOne, target: nil, action: nil)
     private let overlayCheckbox = NSButton(checkboxWithTitle: "Structures", target: nil, action: nil)
+    private var structureTypeCheckboxes: [StructureOverlayType: NSButton] = [:]
     private let queryButton = NSButton(title: "Lookup", target: nil, action: nil)
 
     override func loadView() {
-        view = NSView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        contentContainer = view
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        let contentView = NSView()
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.documentView = contentView
+
+        view = scrollView
+        contentContainer = contentView
     }
 
     override func viewDidLoad() {
@@ -58,6 +70,15 @@ final class SidebarViewController: NSViewController {
         dimensionControl.action = #selector(query)
         overlayCheckbox.target = self
         overlayCheckbox.action = #selector(overlayChanged)
+        overlayCheckbox.state = .off
+
+        for type in StructureOverlayType.allCases {
+            let checkbox = NSButton(checkboxWithTitle: type.title, target: self, action: #selector(structureTypesChanged))
+            checkbox.state = .on
+            checkbox.font = .systemFont(ofSize: 12)
+            structureTypeCheckboxes[type] = checkbox
+        }
+        updateStructureTypeCheckboxesEnabled()
     }
 
     private func buildLayout() {
@@ -90,7 +111,12 @@ final class SidebarViewController: NSViewController {
         overlayTitle.font = .systemFont(ofSize: 13, weight: .semibold)
         stack.addArrangedSubview(overlayTitle)
         stack.addArrangedSubview(overlayCheckbox)
+        stack.addArrangedSubview(structureTypeGroup())
         stack.addArrangedSubview(queryButton)
+
+        guard let scrollView = view as? NSScrollView else {
+            return
+        }
 
         contentContainer.addSubview(stack)
 
@@ -99,6 +125,7 @@ final class SidebarViewController: NSViewController {
             stack.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
             stack.topAnchor.constraint(equalTo: contentContainer.safeAreaLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(lessThanOrEqualTo: contentContainer.bottomAnchor),
+            contentContainer.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
             queryButton.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40),
             seedField.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
             versionPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
@@ -121,6 +148,23 @@ final class SidebarViewController: NSViewController {
         return stack
     }
 
+    private func structureTypeGroup() -> NSStackView {
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 5
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 16, bottom: 4, right: 0)
+
+        for type in StructureOverlayType.allCases {
+            if let checkbox = structureTypeCheckboxes[type] {
+                stack.addArrangedSubview(checkbox)
+            }
+        }
+
+        return stack
+    }
+
     @objc private func query() {
         onQueryRequested?(
             seedField.stringValue,
@@ -132,6 +176,19 @@ final class SidebarViewController: NSViewController {
     }
 
     @objc private func overlayChanged() {
+        updateStructureTypeCheckboxesEnabled()
         onOverlayChanged?(overlayCheckbox.state == .on)
+    }
+
+    @objc private func structureTypesChanged() {
+        let selected = Set(structureTypeCheckboxes.compactMap { type, checkbox in
+            checkbox.state == .on ? type : nil
+        })
+        onStructureTypesChanged?(selected)
+    }
+
+    private func updateStructureTypeCheckboxesEnabled() {
+        let enabled = overlayCheckbox.state == .on
+        structureTypeCheckboxes.values.forEach { $0.isEnabled = enabled }
     }
 }

@@ -104,18 +104,24 @@ struct StructureOverlayResult: Equatable, Sendable {
 struct StructureOverlayCacheKey: Equatable, Sendable {
     let settings: WorldSettings
     let rect: BiomeMapVisibleRect
+    let types: Set<StructureOverlayType>
 
     var cacheKey: String {
-        "\(settings.seed)-\(settings.version.label)-\(settings.dimension.rawValue)-\(rect.minX)-\(rect.minZ)-\(rect.maxX)-\(rect.maxZ)"
+        let typeKey = types.map(\.rawValue).sorted().joined(separator: ",")
+        return "\(settings.seed)-\(settings.version.label)-\(settings.dimension.rawValue)-\(rect.minX)-\(rect.minZ)-\(rect.maxX)-\(rect.maxZ)-\(typeKey)"
     }
 }
 
 protocol StructureOverlayProviding: Sendable {
-    func points(for settings: WorldSettings, visibleRect: BiomeMapVisibleRect) -> StructureOverlayResult
+    func points(for settings: WorldSettings, visibleRect: BiomeMapVisibleRect, types: Set<StructureOverlayType>) -> StructureOverlayResult
 }
 
 struct CubiomesStructureOverlayProvider: StructureOverlayProviding {
-    func points(for settings: WorldSettings, visibleRect: BiomeMapVisibleRect) -> StructureOverlayResult {
+    func points(for settings: WorldSettings, visibleRect: BiomeMapVisibleRect, types: Set<StructureOverlayType>) -> StructureOverlayResult {
+        guard !types.isEmpty else {
+            return StructureOverlayResult(points: [], status: .empty)
+        }
+
         do {
             let rect = StructureRect(
                 minX: visibleRect.minX,
@@ -125,7 +131,7 @@ struct CubiomesStructureOverlayProvider: StructureOverlayProviding {
             )
             var locations: [StructureLocation] = []
             var unsupported: [StructureOverlayType] = []
-            for type in StructureOverlayType.allCases {
+            for type in types.sorted(by: { $0.title < $1.title }) {
                 do {
                     locations.append(contentsOf: try CubiomesCore.structures(
                         version: settings.version.version,
@@ -139,7 +145,8 @@ struct CubiomesStructureOverlayProvider: StructureOverlayProviding {
                 }
             }
 
-            let points = locations.map { location in
+            let viableLocations = locations.filter(\.isViable)
+            let points = viableLocations.map { location in
                 let type = StructureOverlayType(coreType: location.type)
                 return StructureOverlayPoint(
                     type: type,
@@ -149,7 +156,7 @@ struct CubiomesStructureOverlayProvider: StructureOverlayProviding {
                     isViable: location.isViable
                 )
             }
-            if points.isEmpty, unsupported.count == StructureOverlayType.allCases.count, let firstUnsupported = unsupported.first {
+            if points.isEmpty, unsupported.count == types.count, let firstUnsupported = unsupported.first {
                 return StructureOverlayResult(
                     points: [],
                     status: .failed("\(firstUnsupported.title) is unsupported for this world.")

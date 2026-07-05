@@ -26,6 +26,15 @@ final class BiomeMapView: NSView {
         }
     }
 
+    var selectedStructureTypes = Set(StructureOverlayType.allCases) {
+        didSet {
+            guard oldValue != selectedStructureTypes else {
+                return
+            }
+            refreshStructureOverlay()
+        }
+    }
+
     var onCoordinateSelected: ((Int32, Int32) -> Void)?
     var onVisibleCoordinateChanged: ((Int32, Int32) -> Void)?
     var onStructureOverlayStatusChanged: ((StructureOverlayStatus) -> Void)?
@@ -100,17 +109,10 @@ final class BiomeMapView: NSView {
 
     func reloadMap() {
         renderGeneration += 1
-        structureGeneration += 1
         pendingKeys.removeAll()
-        pendingStructureKey = nil
-        visibleStructures = []
-        selectedStructure = nil
         renderQueue.cancelAllOperations()
-        structureQueue.cancelAllOperations()
         cache.removeAll()
-        if overlayEnabled {
-            requestVisibleStructures()
-        }
+        refreshStructureOverlay()
         needsDisplay = true
     }
 
@@ -374,7 +376,7 @@ final class BiomeMapView: NSView {
         }
 
         let visible = visibleWorldRect(paddingRatio: 0.2)
-        let key = StructureOverlayCacheKey(settings: settings, rect: visible)
+        let key = StructureOverlayCacheKey(settings: settings, rect: visible, types: selectedStructureTypes)
         guard pendingStructureKey != key.cacheKey else {
             return
         }
@@ -387,7 +389,7 @@ final class BiomeMapView: NSView {
 
         structureQueue.cancelAllOperations()
         structureQueue.addOperation { [weak self] in
-            let result = provider.points(for: key.settings, visibleRect: key.rect)
+            let result = provider.points(for: key.settings, visibleRect: key.rect, types: key.types)
             OperationQueue.main.addOperation {
                 guard let self, generation == self.structureGeneration else {
                     return
@@ -412,6 +414,19 @@ final class BiomeMapView: NSView {
             }
         }
         return nearest?.point
+    }
+
+    private func refreshStructureOverlay() {
+        structureGeneration += 1
+        pendingStructureKey = nil
+        visibleStructures = []
+        selectedStructure = nil
+        structureQueue.cancelAllOperations()
+        if overlayEnabled {
+            requestVisibleStructures()
+        } else {
+            structureStatus = .disabled
+        }
     }
 
     private func visibleWorldRect(paddingRatio: Double = 0) -> BiomeMapVisibleRect {
