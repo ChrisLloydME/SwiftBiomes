@@ -35,9 +35,12 @@ final class ViewController: NSViewController, NSToolbarDelegate {
             return
         }
 
-        window.title = "SwiftBiomes"
+        window.title = ""
         window.minSize = NSSize(width: 900, height: 560)
-        window.titleVisibility = .visible
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
+        window.toolbarStyle = .unified
 
         if window.toolbar == nil {
             let toolbar = NSToolbar(identifier: "SwiftBiomesToolbar")

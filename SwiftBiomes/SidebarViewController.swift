@@ -4,6 +4,7 @@ final class SidebarViewController: NSViewController {
     var onQueryRequested: ((String, String, String, Int, Int) -> Void)?
     var onOverlayChanged: ((Bool) -> Void)?
 
+    private var contentContainer: NSView!
     private let seedField = NSTextField(string: "\(WorldSettings.sample.seed)")
     private let xField = NSTextField(string: "0")
     private let zField = NSTextField(string: "0")
@@ -15,6 +16,7 @@ final class SidebarViewController: NSViewController {
     override func loadView() {
         view = NSView()
         view.translatesAutoresizingMaskIntoConstraints = false
+        contentContainer = view
     }
 
     override func viewDidLoad() {
@@ -63,7 +65,7 @@ final class SidebarViewController: NSViewController {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
-        stack.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        stack.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let title = NSTextField(labelWithString: "World")
@@ -90,14 +92,14 @@ final class SidebarViewController: NSViewController {
         stack.addArrangedSubview(overlayCheckbox)
         stack.addArrangedSubview(queryButton)
 
-        view.addSubview(stack)
+        contentContainer.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: view.topAnchor),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor),
-            queryButton.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -32),
+            stack.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: contentContainer.safeAreaLayoutGuide.topAnchor),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: contentContainer.bottomAnchor),
+            queryButton.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40),
             seedField.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
             versionPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
             dimensionControl.widthAnchor.constraint(greaterThanOrEqualToConstant: 160)

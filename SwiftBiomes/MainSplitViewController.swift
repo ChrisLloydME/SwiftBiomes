@@ -37,9 +37,25 @@ final class MainSplitViewController: NSSplitViewController {
     }
 
     private func configureMap() {
-        mapView.translatesAutoresizingMaskIntoConstraints = false
         mapView.settings = viewModel.settings
-        mapController.view = mapView
+        mapView.translatesAutoresizingMaskIntoConstraints = false
+
+        if #available(macOS 26.0, *) {
+            let backgroundView = NSBackgroundExtensionView()
+            backgroundView.automaticallyPlacesContentView = false
+            backgroundView.contentView = mapView
+            backgroundView.translatesAutoresizingMaskIntoConstraints = false
+            mapController.view = backgroundView
+
+            NSLayoutConstraint.activate([
+                mapView.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
+                mapView.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
+                mapView.topAnchor.constraint(equalTo: backgroundView.topAnchor),
+                mapView.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor)
+            ])
+        } else {
+            mapController.view = mapView
+        }
     }
 
     private func configureSplitView() {
@@ -52,6 +68,9 @@ final class MainSplitViewController: NSSplitViewController {
 
         let mapItem = NSSplitViewItem(viewController: mapController)
         mapItem.minimumThickness = 360
+        if #available(macOS 26.0, *) {
+            mapItem.automaticallyAdjustsSafeAreaInsets = true
+        }
 
         let inspectorItem = NSSplitViewItem(inspectorWithViewController: inspectorController)
         inspectorItem.minimumThickness = 240
