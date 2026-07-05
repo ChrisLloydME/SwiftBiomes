@@ -41,7 +41,7 @@ final class MainSplitViewController: NSSplitViewController {
         mapView.translatesAutoresizingMaskIntoConstraints = false
 
         if #available(macOS 26.0, *) {
-            let backgroundView = NSBackgroundExtensionView()
+            let backgroundView = MapBackgroundExtensionView()
             backgroundView.automaticallyPlacesContentView = false
             backgroundView.contentView = mapView
             backgroundView.translatesAutoresizingMaskIntoConstraints = false
@@ -122,5 +122,25 @@ final class MainSplitViewController: NSSplitViewController {
             self.viewModel.z = z
             self.viewModel.submitQuery()
         }
+    }
+}
+
+@available(macOS 26.0, *)
+private final class MapBackgroundExtensionView: NSBackgroundExtensionView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard
+            let contentView,
+            !contentView.isHidden,
+            contentView.alphaValue > 0
+        else {
+            return super.hitTest(point)
+        }
+
+        let contentPoint = contentView.convert(point, from: self)
+        guard contentView.bounds.contains(contentPoint) else {
+            return super.hitTest(point)
+        }
+
+        return contentView.hitTest(contentPoint) ?? contentView
     }
 }
