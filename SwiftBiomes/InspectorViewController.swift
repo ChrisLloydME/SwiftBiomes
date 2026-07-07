@@ -7,6 +7,10 @@ final class InspectorViewController: NSViewController {
     private let coordinateLabel = NSTextField(labelWithString: "-")
     private let settingsLabel = NSTextField(wrappingLabelWithString: "-")
     private let overlayLabel = NSTextField(wrappingLabelWithString: "Structures off")
+    private let spawnLabel = NSTextField(labelWithString: "-")
+    private let estimatedSpawnLabel = NSTextField(labelWithString: "-")
+    private let strongholdLabel = NSTextField(labelWithString: "-")
+    private let slimeChunkLabel = NSTextField(wrappingLabelWithString: "-")
 
     override func loadView() {
         view = NSView()
@@ -48,6 +52,8 @@ final class InspectorViewController: NSViewController {
         switch status {
         case .disabled:
             overlayLabel.stringValue = "Structures off"
+        case .noneSelected:
+            overlayLabel.stringValue = "No structure types selected."
         case .loading:
             overlayLabel.stringValue = "Loading structures..."
         case .loaded(let count):
@@ -59,6 +65,36 @@ final class InspectorViewController: NSViewController {
             overlayLabel.stringValue = "\(point.label), \(viability), X \(point.x), Z \(point.z)"
         case .failed(let message):
             overlayLabel.stringValue = message
+        }
+    }
+
+    func updateWorldInsights(_ snapshot: WorldInsightSnapshot) {
+        if let spawn = snapshot.spawn {
+            spawnLabel.stringValue = spawn.displayText
+        } else {
+            spawnLabel.stringValue = "Overworld only"
+        }
+
+        if let estimatedSpawn = snapshot.estimatedSpawn {
+            estimatedSpawnLabel.stringValue = estimatedSpawn.displayText
+        } else {
+            estimatedSpawnLabel.stringValue = "Overworld only"
+        }
+
+        if let firstStronghold = snapshot.firstStronghold {
+            strongholdLabel.stringValue = firstStronghold.displayText
+        } else {
+            strongholdLabel.stringValue = "Overworld only"
+        }
+
+        let chunkText = "Chunk \(snapshot.currentChunkX), \(snapshot.currentChunkZ)"
+        switch snapshot.isCurrentSlimeChunk {
+        case .some(true):
+            slimeChunkLabel.stringValue = "\(chunkText), slime chunk"
+        case .some(false):
+            slimeChunkLabel.stringValue = "\(chunkText), not a slime chunk"
+        case .none:
+            slimeChunkLabel.stringValue = "\(chunkText), Overworld only"
         }
     }
 
@@ -82,6 +118,14 @@ final class InspectorViewController: NSViewController {
         stack.addArrangedSubview(infoGroup(title: "Coordinate", value: coordinateLabel))
         stack.addArrangedSubview(infoGroup(title: "World", value: settingsLabel))
 
+        let anchorsTitle = NSTextField(labelWithString: "World Anchors")
+        anchorsTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+        stack.addArrangedSubview(anchorsTitle)
+        stack.addArrangedSubview(infoGroup(title: "Spawn", value: spawnLabel))
+        stack.addArrangedSubview(infoGroup(title: "Estimated Spawn", value: estimatedSpawnLabel))
+        stack.addArrangedSubview(infoGroup(title: "First Stronghold", value: strongholdLabel))
+        stack.addArrangedSubview(infoGroup(title: "Current Chunk", value: slimeChunkLabel))
+
         let overlayTitle = NSTextField(labelWithString: "Structures")
         overlayTitle.font = .systemFont(ofSize: 13, weight: .semibold)
         overlayLabel.textColor = .secondaryLabelColor
@@ -97,6 +141,7 @@ final class InspectorViewController: NSViewController {
             stack.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor),
             statusLabel.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor, constant: -32),
             settingsLabel.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor, constant: -32),
+            slimeChunkLabel.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor, constant: -32),
             overlayLabel.widthAnchor.constraint(lessThanOrEqualTo: stack.widthAnchor, constant: -32)
         ])
     }

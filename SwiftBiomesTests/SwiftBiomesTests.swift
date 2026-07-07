@@ -7,6 +7,7 @@
 
 import Testing
 import AppKit
+import CubiomesCore
 @testable import SwiftBiomes
 
 struct SwiftBiomesTests {
@@ -164,6 +165,17 @@ struct SwiftBiomesTests {
         #expect(result.points.allSatisfy { $0.isViable })
     }
 
+    @Test func structureOverlayProviderReturnsOnlySelectedTypes() {
+        let provider = CubiomesStructureOverlayProvider()
+        let result = provider.points(
+            for: .sample,
+            visibleRect: BiomeMapVisibleRect(minX: -8192, minZ: -8192, maxX: 8192, maxZ: 8192),
+            types: [.village]
+        )
+
+        #expect(result.points.allSatisfy { $0.type == .village })
+    }
+
     @Test func structureOverlayCacheKeyIncludesDimension() {
         var netherSettings = WorldSettings.sample
         netherSettings.dimension = .nether
@@ -193,11 +205,41 @@ struct SwiftBiomesTests {
         )
 
         #expect(result.points.isEmpty)
-        if case .empty = result.status {
+        if case .noneSelected = result.status {
             #expect(true)
         } else {
-            Issue.record("Expected empty status, got \(result.status)")
+            Issue.record("Expected none selected status, got \(result.status)")
         }
+    }
+
+    @Test func structureOverlayMapsNewRemoteStructureTypes() {
+        #expect(StructureOverlayType(coreType: .oceanRuin) == .oceanRuin)
+        #expect(StructureOverlayType(coreType: .shipwreck) == .shipwreck)
+        #expect(StructureOverlayType(coreType: .trailRuins) == .trailRuins)
+        #expect(StructureOverlayType(coreType: .trialChambers) == .trialChambers)
+    }
+
+    @Test func worldInsightProviderUsesOverworldOnlyAnchors() {
+        let provider = CubiomesWorldInsightProvider()
+        let overworld = provider.snapshot(for: .init(settings: .sample, x: -1, z: -17))
+
+        #expect(overworld.spawn != nil)
+        #expect(overworld.estimatedSpawn != nil)
+        #expect(overworld.firstStronghold != nil)
+        #expect(overworld.currentChunkX == -1)
+        #expect(overworld.currentChunkZ == -2)
+        #expect(overworld.isCurrentSlimeChunk != nil)
+
+        var netherSettings = WorldSettings.sample
+        netherSettings.dimension = .nether
+        let nether = provider.snapshot(for: .init(settings: netherSettings, x: -1, z: -17))
+
+        #expect(nether.spawn == nil)
+        #expect(nether.estimatedSpawn == nil)
+        #expect(nether.firstStronghold == nil)
+        #expect(nether.currentChunkX == -1)
+        #expect(nether.currentChunkZ == -2)
+        #expect(nether.isCurrentSlimeChunk == nil)
     }
 
     @Test func validationRejectsInvalidCoordinate() {

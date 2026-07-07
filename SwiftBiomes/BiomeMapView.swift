@@ -26,7 +26,7 @@ final class BiomeMapView: NSView {
         }
     }
 
-    var selectedStructureTypes = Set(StructureOverlayType.allCases) {
+    var selectedStructureTypes = Set<StructureOverlayType>() {
         didSet {
             guard oldValue != selectedStructureTypes else {
                 return
@@ -326,6 +326,8 @@ final class BiomeMapView: NSView {
         switch structureStatus {
         case .disabled:
             return
+        case .noneSelected:
+            text = "No structure types selected"
         case .loading:
             text = "Loading structures..."
         case .loaded(let count):
@@ -372,6 +374,18 @@ final class BiomeMapView: NSView {
 
     private func requestVisibleStructures() {
         guard overlayEnabled else {
+            return
+        }
+
+        guard !selectedStructureTypes.isEmpty else {
+            pendingStructureKey = nil
+            visibleStructures = []
+            selectedStructure = nil
+            structureQueue.cancelAllOperations()
+            if structureStatus != .noneSelected {
+                structureStatus = .noneSelected
+                onStructureOverlayStatusChanged?(structureStatus)
+            }
             return
         }
 
@@ -491,19 +505,19 @@ final class BiomeMapView: NSView {
 private enum StructureOverlayStyle {
     static func color(for type: StructureOverlayType) -> NSColor {
         switch type {
-        case .village, .outpost:
+        case .village, .outpost, .trailRuins, .trialChambers:
             return NSColor.systemGreen
-        case .desertPyramid, .jungleTemple, .swampHut, .igloo:
+        case .desertPyramid, .jungleTemple, .swampHut, .igloo, .desertWell:
             return NSColor.systemYellow
-        case .monument, .treasure:
+        case .oceanRuin, .shipwreck, .monument, .treasure:
             return NSColor.systemBlue
         case .mansion, .ancientCity, .stronghold:
             return NSColor.systemPurple
-        case .ruinedPortal, .fortress, .bastion:
+        case .ruinedPortal, .netherRuinedPortal, .fortress, .bastion:
             return NSColor.systemRed
-        case .endCity:
+        case .endCity, .endGateway, .endIsland:
             return NSColor.systemTeal
-        case .mineshaft, .slimeChunk:
+        case .mineshaft, .geode, .slimeChunk:
             return NSColor.systemOrange
         }
     }

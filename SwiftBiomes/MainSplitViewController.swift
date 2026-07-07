@@ -6,6 +6,7 @@ final class MainSplitViewController: NSSplitViewController {
     private let inspectorController = InspectorViewController()
     private let mapController = NSViewController()
     private let mapView = BiomeMapView()
+    private let worldInsightProvider: any WorldInsightProviding = CubiomesWorldInsightProvider()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -83,7 +84,12 @@ final class MainSplitViewController: NSSplitViewController {
 
     private func configureBindings() {
         viewModel.onChange = { [weak self] viewModel in
-            self?.inspectorController.update(state: viewModel.state)
+            guard let self else {
+                return
+            }
+
+            self.inspectorController.update(state: viewModel.state)
+            self.inspectorController.updateWorldInsights(self.worldInsightProvider.snapshot(for: viewModel.currentRequest))
         }
 
         sidebarController.onQueryRequested = { [weak self] seed, x, z, versionIndex, dimensionIndex in

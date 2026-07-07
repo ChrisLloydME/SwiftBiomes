@@ -1,0 +1,55 @@
+{
+  "features" : [
+    "refractivity"
+  ],
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.35686,0.52941,0.19216,1.00000",
+      "srgb:0.29020,0.43529,0.15686,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "blur-material" : 0.5,
+      "layers" : [
+        {
+          "image-name" : "cube.transparent.png",
+          "name" : "cube.transparent",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              9.000000000000114,
+              -1.0000000000001137
+            ]
+          }
+        }
+      ],
+      "position" : {
+        "scale" : 0.84,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : true,
+        "strength" : 0.5
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

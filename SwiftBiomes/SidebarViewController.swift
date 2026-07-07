@@ -12,6 +12,8 @@ final class SidebarViewController: NSViewController {
     private let versionPopup = NSPopUpButton()
     private let dimensionControl = NSSegmentedControl(labels: DimensionOption.allCases.map(\.rawValue), trackingMode: .selectOne, target: nil, action: nil)
     private let overlayCheckbox = NSButton(checkboxWithTitle: "Structures", target: nil, action: nil)
+    private let selectAllStructuresButton = NSButton(title: "All", target: nil, action: nil)
+    private let selectNoStructuresButton = NSButton(title: "None", target: nil, action: nil)
     private var structureTypeCheckboxes: [StructureOverlayType: NSButton] = [:]
     private let queryButton = NSButton(title: "Lookup", target: nil, action: nil)
 
@@ -71,10 +73,20 @@ final class SidebarViewController: NSViewController {
         overlayCheckbox.target = self
         overlayCheckbox.action = #selector(overlayChanged)
         overlayCheckbox.state = .off
+        selectAllStructuresButton.bezelStyle = .rounded
+        selectAllStructuresButton.controlSize = .small
+        selectAllStructuresButton.font = .systemFont(ofSize: 11)
+        selectAllStructuresButton.target = self
+        selectAllStructuresButton.action = #selector(selectAllStructures)
+        selectNoStructuresButton.bezelStyle = .rounded
+        selectNoStructuresButton.controlSize = .small
+        selectNoStructuresButton.font = .systemFont(ofSize: 11)
+        selectNoStructuresButton.target = self
+        selectNoStructuresButton.action = #selector(selectNoStructures)
 
         for type in StructureOverlayType.allCases {
             let checkbox = NSButton(checkboxWithTitle: type.title, target: self, action: #selector(structureTypesChanged))
-            checkbox.state = .on
+            checkbox.state = .off
             checkbox.font = .systemFont(ofSize: 12)
             structureTypeCheckboxes[type] = checkbox
         }
@@ -111,6 +123,7 @@ final class SidebarViewController: NSViewController {
         overlayTitle.font = .systemFont(ofSize: 13, weight: .semibold)
         stack.addArrangedSubview(overlayTitle)
         stack.addArrangedSubview(overlayCheckbox)
+        stack.addArrangedSubview(structureSelectionButtonRow())
         stack.addArrangedSubview(structureTypeGroup())
         stack.addArrangedSubview(queryButton)
 
@@ -165,6 +178,16 @@ final class SidebarViewController: NSViewController {
         return stack
     }
 
+    private func structureSelectionButtonRow() -> NSStackView {
+        let stack = NSStackView(views: [selectAllStructuresButton, selectNoStructuresButton])
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 6
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 0)
+        return stack
+    }
+
     @objc private func query() {
         onQueryRequested?(
             seedField.stringValue,
@@ -181,6 +204,24 @@ final class SidebarViewController: NSViewController {
     }
 
     @objc private func structureTypesChanged() {
+        publishSelectedStructureTypes()
+    }
+
+    @objc private func selectAllStructures() {
+        setAllStructureTypesSelected(true)
+    }
+
+    @objc private func selectNoStructures() {
+        setAllStructureTypesSelected(false)
+    }
+
+    private func setAllStructureTypesSelected(_ selected: Bool) {
+        let state: NSControl.StateValue = selected ? .on : .off
+        structureTypeCheckboxes.values.forEach { $0.state = state }
+        publishSelectedStructureTypes()
+    }
+
+    private func publishSelectedStructureTypes() {
         let selected = Set(structureTypeCheckboxes.compactMap { type, checkbox in
             checkbox.state == .on ? type : nil
         })
@@ -190,5 +231,7 @@ final class SidebarViewController: NSViewController {
     private func updateStructureTypeCheckboxesEnabled() {
         let enabled = overlayCheckbox.state == .on
         structureTypeCheckboxes.values.forEach { $0.isEnabled = enabled }
+        selectAllStructuresButton.isEnabled = enabled
+        selectNoStructuresButton.isEnabled = enabled
     }
 }

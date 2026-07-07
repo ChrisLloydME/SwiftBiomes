@@ -7,16 +7,25 @@ enum StructureOverlayType: String, CaseIterable, Sendable {
     case jungleTemple
     case swampHut
     case igloo
+    case oceanRuin
+    case shipwreck
     case monument
     case mansion
     case outpost
     case ruinedPortal
+    case netherRuinedPortal
     case ancientCity
     case treasure
     case mineshaft
+    case desertWell
+    case geode
     case fortress
     case bastion
     case endCity
+    case endGateway
+    case endIsland
+    case trailRuins
+    case trialChambers
     case stronghold
     case slimeChunk
 
@@ -25,9 +34,15 @@ enum StructureOverlayType: String, CaseIterable, Sendable {
         case .desertPyramid: return "Desert Pyramid"
         case .jungleTemple: return "Jungle Temple"
         case .swampHut: return "Swamp Hut"
+        case .oceanRuin: return "Ocean Ruin"
         case .ruinedPortal: return "Ruined Portal"
+        case .netherRuinedPortal: return "Nether Ruined Portal"
         case .ancientCity: return "Ancient City"
         case .endCity: return "End City"
+        case .endGateway: return "End Gateway"
+        case .endIsland: return "End Island"
+        case .trailRuins: return "Trail Ruins"
+        case .trialChambers: return "Trial Chambers"
         case .slimeChunk: return "Slime Chunk"
         default:
             return rawValue.replacingOccurrences(of: "_", with: " ").capitalized
@@ -41,38 +56,57 @@ enum StructureOverlayType: String, CaseIterable, Sendable {
         case .jungleTemple: return .jungleTemple
         case .swampHut: return .swampHut
         case .igloo: return .igloo
+        case .oceanRuin: return .oceanRuin
+        case .shipwreck: return .shipwreck
         case .monument: return .monument
         case .mansion: return .mansion
         case .outpost: return .outpost
         case .ruinedPortal: return .ruinedPortal
+        case .netherRuinedPortal: return .netherRuinedPortal
         case .ancientCity: return .ancientCity
         case .treasure: return .treasure
         case .mineshaft: return .mineshaft
+        case .desertWell: return .desertWell
+        case .geode: return .geode
         case .fortress: return .fortress
         case .bastion: return .bastion
         case .endCity: return .endCity
+        case .endGateway: return .endGateway
+        case .endIsland: return .endIsland
+        case .trailRuins: return .trailRuins
+        case .trialChambers: return .trialChambers
         case .stronghold: return .stronghold
         case .slimeChunk: return .slimeChunk
         }
     }
 
-    init(coreType: StructureType) {
+    init?(coreType: StructureType) {
         switch coreType {
+        case .feature: return nil
         case .village: self = .village
         case .desertPyramid: self = .desertPyramid
         case .jungleTemple: self = .jungleTemple
         case .swampHut: self = .swampHut
         case .igloo: self = .igloo
+        case .oceanRuin: self = .oceanRuin
+        case .shipwreck: self = .shipwreck
         case .monument: self = .monument
         case .mansion: self = .mansion
         case .outpost: self = .outpost
         case .ruinedPortal: self = .ruinedPortal
+        case .netherRuinedPortal: self = .netherRuinedPortal
         case .ancientCity: self = .ancientCity
         case .treasure: self = .treasure
         case .mineshaft: self = .mineshaft
+        case .desertWell: self = .desertWell
+        case .geode: self = .geode
         case .fortress: self = .fortress
         case .bastion: self = .bastion
         case .endCity: self = .endCity
+        case .endGateway: self = .endGateway
+        case .endIsland: self = .endIsland
+        case .trailRuins: self = .trailRuins
+        case .trialChambers: self = .trialChambers
         case .stronghold: self = .stronghold
         case .slimeChunk: self = .slimeChunk
         }
@@ -89,6 +123,7 @@ struct StructureOverlayPoint: Equatable, Sendable {
 
 enum StructureOverlayStatus: Equatable, Sendable {
     case disabled
+    case noneSelected
     case loading
     case loaded(Int)
     case empty
@@ -119,7 +154,7 @@ protocol StructureOverlayProviding: Sendable {
 struct CubiomesStructureOverlayProvider: StructureOverlayProviding {
     func points(for settings: WorldSettings, visibleRect: BiomeMapVisibleRect, types: Set<StructureOverlayType>) -> StructureOverlayResult {
         guard !types.isEmpty else {
-            return StructureOverlayResult(points: [], status: .empty)
+            return StructureOverlayResult(points: [], status: .noneSelected)
         }
 
         do {
@@ -140,14 +175,18 @@ struct CubiomesStructureOverlayProvider: StructureOverlayProviding {
                         types: [type.coreType],
                         rect: rect
                     ))
-                } catch CubiomesError.unsupportedStructure {
-                    unsupported.append(type)
+                } catch CubiomesError.unsupportedStructure(let unsupportedType, _, _) {
+                    unsupported.append(StructureOverlayType(coreType: unsupportedType) ?? type)
+                } catch CubiomesError.unsupportedStructureConfig(let unsupportedType, _) {
+                    unsupported.append(StructureOverlayType(coreType: unsupportedType) ?? type)
                 }
             }
 
             let viableLocations = locations.filter(\.isViable)
-            let points = viableLocations.map { location in
-                let type = StructureOverlayType(coreType: location.type)
+            let points = viableLocations.compactMap { location -> StructureOverlayPoint? in
+                guard let type = StructureOverlayType(coreType: location.type) else {
+                    return nil
+                }
                 return StructureOverlayPoint(
                     type: type,
                     x: location.blockX,

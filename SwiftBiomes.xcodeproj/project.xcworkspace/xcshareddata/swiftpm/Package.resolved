@@ -1,0 +1,15 @@
+{
+  "originHash" : "92ba4eae7b4c6cf1d984b0d5537d13b1ff3d68f2f9e5bcfa412be1eba9c70388",
+  "pins" : [
+    {
+      "identity" : "cubiomescore",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ChrisLloydME/CubiomesCore.git",
+      "state" : {
+        "revision" : "62a03ec706927ac955446ef9c16457dcb7484c90",
+        "version" : "4.2.0"
+      }
+    }
+  ],
+  "version" : 3
+}
