@@ -430,17 +430,21 @@ final class BiomeMapView: NSView {
             return
         }
 
+        structureGeneration += 1
+        let generation = structureGeneration
         pendingStructureKey = key.cacheKey
+
         structureStatus = .loading
         onStructureOverlayStatusChanged?(structureStatus)
-        let generation = structureGeneration
         let provider = structureProvider
 
         structureQueue.cancelAllOperations()
         structureQueue.addOperation { [weak self] in
             let result = provider.points(for: key.settings, visibleRect: key.rect, types: key.types)
             OperationQueue.main.addOperation {
-                guard let self, generation == self.structureGeneration else {
+                guard let self,
+                      generation == self.structureGeneration,
+                      self.pendingStructureKey == key.cacheKey else {
                     return
                 }
 
