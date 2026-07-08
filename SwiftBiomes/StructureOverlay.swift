@@ -80,6 +80,37 @@ enum StructureOverlayType: String, CaseIterable, Sendable {
         }
     }
 
+    var iconResourceName: String {
+        switch self {
+        case .village: return "village"
+        case .desertPyramid: return "desert"
+        case .jungleTemple: return "jungle"
+        case .swampHut: return "hut"
+        case .igloo: return "igloo"
+        case .oceanRuin: return "ruins"
+        case .shipwreck: return "shipwreck"
+        case .monument: return "monument"
+        case .mansion: return "mansion"
+        case .outpost: return "outpost"
+        case .ruinedPortal: return "portal"
+        case .netherRuinedPortal: return "nether"
+        case .ancientCity: return "ancient_city"
+        case .treasure: return "treasure"
+        case .mineshaft: return "mineshaft"
+        case .desertWell: return "well"
+        case .geode: return "geode"
+        case .fortress: return "fortress"
+        case .bastion: return "bastion"
+        case .endCity: return "endcity"
+        case .endGateway: return "gateway"
+        case .endIsland: return "the_end"
+        case .trailRuins: return "trails"
+        case .trialChambers: return "chambers"
+        case .stronghold: return "stronghold"
+        case .slimeChunk: return "slime"
+        }
+    }
+
     init?(coreType: StructureType) {
         switch coreType {
         case .feature: return nil

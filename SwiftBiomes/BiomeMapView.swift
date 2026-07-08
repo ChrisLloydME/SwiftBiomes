@@ -62,6 +62,7 @@ final class BiomeMapView: NSView {
     private var visibleStructures: [StructureOverlayPoint] = []
     private var selectedStructure: StructureOverlayPoint?
     private var structureStatus: StructureOverlayStatus = .disabled
+    private var structureIconCache: [StructureOverlayType: NSImage] = [:]
     private var centerX: Double = 0
     private var centerZ: Double = 0
     private var pixelsPerBlock: Double = 2.0
@@ -148,7 +149,7 @@ final class BiomeMapView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if overlayEnabled, let structure = nearestStructure(to: point, maximumDistance: 12) {
+        if overlayEnabled, let structure = nearestStructure(to: point, maximumDistance: 14) {
             selectedStructure = structure
             structureStatus = .selected(structure)
             onStructureOverlayStatusChanged?(structureStatus)
@@ -356,20 +357,64 @@ final class BiomeMapView: NSView {
         for point in visibleStructures {
             let screenPoint = pointForWorld(x: Double(point.x), z: Double(point.z))
             let selected = point == selectedStructure
-            let radius: CGFloat = selected ? 6 : 4
-            let rect = NSRect(
-                x: screenPoint.x - radius,
-                y: screenPoint.y - radius,
-                width: radius * 2,
-                height: radius * 2
-            )
-            let path = NSBezierPath(ovalIn: rect)
-            StructureOverlayStyle.color(for: point.type).setFill()
-            path.fill()
-            NSColor.windowBackgroundColor.withAlphaComponent(selected ? 0.95 : 0.75).setStroke()
-            path.lineWidth = selected ? 2 : 1
-            path.stroke()
+            drawStructureIcon(point.type, at: screenPoint, selected: selected)
         }
+    }
+
+    private func drawStructureIcon(_ type: StructureOverlayType, at point: NSPoint, selected: Bool) {
+        let side: CGFloat = selected ? 24 : 20
+        let rect = NSRect(
+            x: point.x - side / 2,
+            y: point.y - side / 2,
+            width: side,
+            height: side
+        )
+
+        if selected {
+            let highlightRect = rect.insetBy(dx: -3, dy: -3)
+            NSColor.windowBackgroundColor.withAlphaComponent(0.9).setFill()
+            NSBezierPath(ovalIn: highlightRect).fill()
+            NSColor.controlAccentColor.withAlphaComponent(0.95).setStroke()
+            let highlightPath = NSBezierPath(ovalIn: highlightRect)
+            highlightPath.lineWidth = 2
+            highlightPath.stroke()
+        }
+
+        if let icon = structureIcon(for: type) {
+            icon.draw(
+                in: rect,
+                from: .zero,
+                operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: true,
+                hints: [.interpolation: NSImageInterpolation.none]
+            )
+        } else {
+            drawMissingStructureIcon(in: rect, selected: selected)
+        }
+    }
+
+    private func structureIcon(for type: StructureOverlayType) -> NSImage? {
+        if let cached = structureIconCache[type] {
+            return cached
+        }
+        guard let url = Bundle.main.url(
+            forResource: type.iconResourceName,
+            withExtension: "png"
+        ), let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+        structureIconCache[type] = image
+        return image
+    }
+
+    private func drawMissingStructureIcon(in rect: NSRect, selected: Bool) {
+        let path = NSBezierPath(ovalIn: rect.insetBy(dx: selected ? 5 : 6, dy: selected ? 5 : 6))
+        NSColor.controlAccentColor.setFill()
+        path.fill()
+        NSColor.windowBackgroundColor.withAlphaComponent(selected ? 0.95 : 0.75).setStroke()
+        path.lineWidth = selected ? 2 : 1
+        path.stroke()
     }
 
     private func requestVisibleStructures() {
@@ -499,26 +544,5 @@ final class BiomeMapView: NSView {
 
     private func notifyCenter() {
         onVisibleCoordinateChanged?(Int32(clamping: Int(centerX.rounded())), Int32(clamping: Int(centerZ.rounded())))
-    }
-}
-
-private enum StructureOverlayStyle {
-    static func color(for type: StructureOverlayType) -> NSColor {
-        switch type {
-        case .village, .outpost, .trailRuins, .trialChambers:
-            return NSColor.systemGreen
-        case .desertPyramid, .jungleTemple, .swampHut, .igloo, .desertWell:
-            return NSColor.systemYellow
-        case .oceanRuin, .shipwreck, .monument, .treasure:
-            return NSColor.systemBlue
-        case .mansion, .ancientCity, .stronghold:
-            return NSColor.systemPurple
-        case .ruinedPortal, .netherRuinedPortal, .fortress, .bastion:
-            return NSColor.systemRed
-        case .endCity, .endGateway, .endIsland:
-            return NSColor.systemTeal
-        case .mineshaft, .geode, .slimeChunk:
-            return NSColor.systemOrange
-        }
     }
 }
