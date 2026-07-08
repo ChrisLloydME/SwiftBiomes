@@ -370,16 +370,6 @@ final class BiomeMapView: NSView {
             height: side
         )
 
-        if selected {
-            let highlightRect = rect.insetBy(dx: -3, dy: -3)
-            NSColor.windowBackgroundColor.withAlphaComponent(0.9).setFill()
-            NSBezierPath(ovalIn: highlightRect).fill()
-            NSColor.controlAccentColor.withAlphaComponent(0.95).setStroke()
-            let highlightPath = NSBezierPath(ovalIn: highlightRect)
-            highlightPath.lineWidth = 2
-            highlightPath.stroke()
-        }
-
         if let icon = structureIcon(for: type) {
             icon.draw(
                 in: rect,
