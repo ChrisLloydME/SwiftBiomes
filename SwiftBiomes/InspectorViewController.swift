@@ -61,8 +61,7 @@ final class InspectorViewController: NSViewController {
         case .empty:
             overlayLabel.stringValue = "No structures found in the visible area."
         case .selected(let point):
-            let viability = point.isViable ? "viable" : "candidate"
-            overlayLabel.stringValue = "\(point.label), \(viability), X \(point.x), Z \(point.z)"
+            overlayLabel.stringValue = point.inspectorText
         case .failed(let message):
             overlayLabel.stringValue = message
         }

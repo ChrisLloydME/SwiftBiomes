@@ -242,6 +242,28 @@ struct SwiftBiomesTests {
         #expect(nether.isCurrentSlimeChunk == nil)
     }
 
+    @Test func screenshotSlimeChunkSelectionUsesDifferentCoordinateThanCurrentChunk() {
+        let provider = CubiomesWorldInsightProvider()
+        let snapshot = provider.snapshot(for: .init(settings: .sample, x: -283, z: -68))
+
+        #expect(snapshot.currentChunkX == -18)
+        #expect(snapshot.currentChunkZ == -5)
+        #expect(snapshot.isCurrentSlimeChunk == false)
+        #expect(CubiomesCore.isSlimeChunk(seed: WorldSettings.sample.seed, chunkX: -20, chunkZ: -1))
+    }
+
+    @Test func slimeChunkInspectorTextIncludesSelectedChunkAndOrigin() {
+        let point = StructureOverlayPoint(
+            type: .slimeChunk,
+            x: -320,
+            z: -16,
+            label: "Slime Chunk",
+            isViable: true
+        )
+
+        #expect(point.inspectorText == "Slime Chunk, viable, Chunk -20, -1, origin X -320, Z -16")
+    }
+
     @Test func validationRejectsInvalidCoordinate() {
         #expect(throws: BiomeQueryViewModel.QueryError.invalidCoordinate) {
             _ = try BiomeQueryValidation.parseCoordinate("12.5")

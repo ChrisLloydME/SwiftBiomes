@@ -150,6 +150,20 @@ struct StructureOverlayPoint: Equatable, Sendable {
     let z: Int32
     let label: String
     let isViable: Bool
+
+    var inspectorText: String {
+        let viability = isViable ? "viable" : "candidate"
+        if type == .slimeChunk {
+            return "\(label), \(viability), Chunk \(floorDiv(x, 16)), \(floorDiv(z, 16)), origin X \(x), Z \(z)"
+        }
+        return "\(label), \(viability), X \(x), Z \(z)"
+    }
+
+    private func floorDiv(_ value: Int32, _ divisor: Int32) -> Int32 {
+        let quotient = value / divisor
+        let remainder = value % divisor
+        return remainder < 0 ? quotient - 1 : quotient
+    }
 }
 
 enum StructureOverlayStatus: Equatable, Sendable {
