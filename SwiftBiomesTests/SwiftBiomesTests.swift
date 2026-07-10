@@ -219,6 +219,22 @@ struct SwiftBiomesTests {
         #expect(StructureOverlayType(coreType: .trialChambers) == .trialChambers)
     }
 
+    @Test func structureTypesAreFilteredByDimension() {
+        let overworld = Set(StructureOverlayType.available(in: .overworld))
+        let nether = Set(StructureOverlayType.available(in: .nether))
+        let end = Set(StructureOverlayType.available(in: .end))
+
+        #expect(nether == [.netherRuinedPortal, .fortress, .bastion])
+        #expect(end == [.endCity, .endGateway, .endIsland])
+        #expect(overworld.contains(.village))
+        #expect(overworld.contains(.ruinedPortal))
+        #expect(!overworld.contains(.fortress))
+        #expect(overworld.isDisjoint(with: nether))
+        #expect(overworld.isDisjoint(with: end))
+        #expect(nether.isDisjoint(with: end))
+        #expect(overworld.count + nether.count + end.count == StructureOverlayType.allCases.count)
+    }
+
     @Test func worldInsightProviderUsesOverworldOnlyAnchors() {
         let provider = CubiomesWorldInsightProvider()
         let overworld = provider.snapshot(for: .init(settings: .sample, x: -1, z: -17))

@@ -29,6 +29,21 @@ enum StructureOverlayType: String, CaseIterable, Sendable {
     case stronghold
     case slimeChunk
 
+    static func available(in dimension: DimensionOption) -> [StructureOverlayType] {
+        allCases.filter { $0.dimension == dimension }
+    }
+
+    var dimension: DimensionOption {
+        switch self {
+        case .netherRuinedPortal, .fortress, .bastion:
+            return .nether
+        case .endCity, .endGateway, .endIsland:
+            return .end
+        default:
+            return .overworld
+        }
+    }
+
     var title: String {
         switch self {
         case .desertPyramid: return "Desert Pyramid"
