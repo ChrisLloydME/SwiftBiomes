@@ -14,8 +14,8 @@ final class SidebarViewController: NSViewController {
     private let overlayCheckbox = NSButton(checkboxWithTitle: "Structures", target: nil, action: nil)
     private let selectAllStructuresButton = NSButton(title: "All", target: nil, action: nil)
     private let selectNoStructuresButton = NSButton(title: "None", target: nil, action: nil)
-    private let structureAvailabilityLabel = NSTextField(labelWithString: "")
     private var structureTypeCheckboxes: [StructureOverlayType: NSButton] = [:]
+    private var structureTypeRows: [StructureOverlayType: NSView] = [:]
     private let queryButton = NSButton(title: "Lookup", target: nil, action: nil)
 
     private var selectedDimension: DimensionOption {
@@ -34,7 +34,7 @@ final class SidebarViewController: NSViewController {
         scrollView.autohidesScrollers = true
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
-        let contentView = NSView()
+        let contentView = FlippedView()
         contentView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.documentView = contentView
 
@@ -100,18 +100,14 @@ final class SidebarViewController: NSViewController {
         selectNoStructuresButton.target = self
         selectNoStructuresButton.action = #selector(selectNoStructures)
 
-        structureAvailabilityLabel.font = .systemFont(ofSize: 11)
-        structureAvailabilityLabel.textColor = .secondaryLabelColor
-        structureAvailabilityLabel.maximumNumberOfLines = 2
-        structureAvailabilityLabel.lineBreakMode = .byWordWrapping
-
         for type in StructureOverlayType.allCases {
-            let checkbox = NSButton(checkboxWithTitle: type.title, target: self, action: #selector(structureTypesChanged))
+            let checkbox = NSButton(checkboxWithTitle: "", target: self, action: #selector(structureTypesChanged))
             checkbox.state = .off
-            checkbox.font = .systemFont(ofSize: 12)
             checkbox.controlSize = .small
+            checkbox.setAccessibilityLabel(type.title)
             checkbox.setAccessibilityIdentifier("structure.\(type.rawValue)")
             structureTypeCheckboxes[type] = checkbox
+            structureTypeRows[type] = structureRow(for: type, checkbox: checkbox)
         }
         updateVisibleStructureTypes()
         updateStructureTypeCheckboxesEnabled()
@@ -120,9 +116,8 @@ final class SidebarViewController: NSViewController {
     private func buildLayout() {
         let stack = NSStackView()
         stack.orientation = .vertical
-        stack.alignment = .width
+        stack.alignment = .leading
         stack.spacing = 0
-        stack.edgeInsets = NSEdgeInsets(top: 18, left: 16, bottom: 18, right: 16)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         stack.addArrangedSubview(appHeader())
@@ -136,12 +131,12 @@ final class SidebarViewController: NSViewController {
         stack.addArrangedSubview(fieldGroup(label: "Dimension", control: dimensionControl))
         stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
 
-        let coordinateRow = NSStackView(views: [
-            fieldGroup(label: "X", control: xField),
-            fieldGroup(label: "Z", control: zField)
-        ])
+        let xCoordinate = inlineField(label: "X", control: xField)
+        let zCoordinate = inlineField(label: "Z", control: zField)
+        let coordinateRow = NSStackView(views: [xCoordinate, zCoordinate])
         coordinateRow.orientation = .horizontal
-        coordinateRow.spacing = 8
+        coordinateRow.alignment = .centerY
+        coordinateRow.spacing = 12
         coordinateRow.distribution = .fillEqually
         coordinateRow.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(coordinateRow)
@@ -152,9 +147,7 @@ final class SidebarViewController: NSViewController {
         stack.addArrangedSubview(sectionHeader("MAP LAYERS", symbolName: "square.3.layers.3d"))
         stack.setCustomSpacing(11, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(structureHeaderRow())
-        stack.setCustomSpacing(3, after: stack.arrangedSubviews.last!)
-        stack.addArrangedSubview(structureAvailabilityLabel)
-        stack.setCustomSpacing(8, after: structureAvailabilityLabel)
+        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(structureTypeGroup())
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(divider())
@@ -167,12 +160,17 @@ final class SidebarViewController: NSViewController {
 
         contentContainer.addSubview(stack)
 
+        for arrangedSubview in stack.arrangedSubviews {
+            arrangedSubview.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: contentContainer.safeAreaLayoutGuide.topAnchor),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: contentContainer.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -16),
+            stack.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: 18),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: contentContainer.bottomAnchor, constant: -18),
             contentContainer.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
+            contentContainer.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.contentView.heightAnchor),
             seedField.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
             versionPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
             dimensionControl.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
@@ -180,7 +178,7 @@ final class SidebarViewController: NSViewController {
         ])
     }
 
-    private func appHeader() -> NSStackView {
+    private func appHeader() -> NSView {
         let icon = NSImageView(image: NSImage(systemSymbolName: "mountain.2.fill", accessibilityDescription: nil) ?? NSImage())
         icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 20, weight: .medium)
         icon.contentTintColor = .controlAccentColor
@@ -205,14 +203,21 @@ final class SidebarViewController: NSViewController {
         row.spacing = 9
         row.translatesAutoresizingMaskIntoConstraints = false
 
+        let container = NSView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(row)
+
         NSLayoutConstraint.activate([
             icon.widthAnchor.constraint(equalToConstant: 28),
-            icon.heightAnchor.constraint(equalToConstant: 28)
+            icon.heightAnchor.constraint(equalToConstant: 28),
+            row.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            row.topAnchor.constraint(equalTo: container.topAnchor),
+            row.bottomAnchor.constraint(equalTo: container.bottomAnchor)
         ])
-        return row
+        return container
     }
 
-    private func sectionHeader(_ title: String, symbolName: String) -> NSStackView {
+    private func sectionHeader(_ title: String, symbolName: String) -> NSView {
         let image = NSImageView(image: NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) ?? NSImage())
         image.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
         image.contentTintColor = .tertiaryLabelColor
@@ -220,12 +225,23 @@ final class SidebarViewController: NSViewController {
         let label = NSTextField(labelWithString: title)
         label.font = .systemFont(ofSize: 10, weight: .semibold)
         label.textColor = .secondaryLabelColor
+        label.alignment = .left
 
         let row = NSStackView(views: [image, label])
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 6
-        return row
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = NSView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(row)
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            row.topAnchor.constraint(equalTo: container.topAnchor),
+            row.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        return container
     }
 
     private func divider() -> NSBox {
@@ -238,33 +254,107 @@ final class SidebarViewController: NSViewController {
         let labelView = NSTextField(labelWithString: label)
         labelView.font = .systemFont(ofSize: 11, weight: .medium)
         labelView.textColor = .secondaryLabelColor
+        labelView.alignment = .left
 
         let stack = NSStackView(views: [labelView, control])
         stack.orientation = .vertical
-        stack.alignment = .width
+        stack.alignment = .leading
         stack.spacing = 4
         stack.translatesAutoresizingMaskIntoConstraints = false
         control.translatesAutoresizingMaskIntoConstraints = false
-        control.widthAnchor.constraint(greaterThanOrEqualToConstant: 72).isActive = true
+        NSLayoutConstraint.activate([
+            labelView.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            control.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            control.widthAnchor.constraint(greaterThanOrEqualToConstant: 72)
+        ])
+        return stack
+    }
+
+    private func inlineField(label: String, control: NSView) -> NSStackView {
+        let labelView = NSTextField(labelWithString: label)
+        labelView.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        labelView.textColor = .secondaryLabelColor
+        labelView.alignment = .left
+        labelView.translatesAutoresizingMaskIntoConstraints = false
+
+        let stack = NSStackView(views: [labelView, control])
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 6
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        control.translatesAutoresizingMaskIntoConstraints = false
+        labelView.widthAnchor.constraint(equalToConstant: 10).isActive = true
         return stack
     }
 
     private func structureTypeGroup() -> NSStackView {
         let stack = NSStackView()
         stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 4
+        stack.alignment = .width
+        stack.spacing = 2
         stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 14, bottom: 2, right: 0)
         stack.detachesHiddenViews = true
 
         for type in StructureOverlayType.allCases {
-            if let checkbox = structureTypeCheckboxes[type] {
-                stack.addArrangedSubview(checkbox)
+            if let row = structureTypeRows[type] {
+                stack.addArrangedSubview(row)
             }
         }
 
         return stack
+    }
+
+    private func structureRow(for type: StructureOverlayType, checkbox: NSButton) -> NSView {
+        let iconPlate = NSBox()
+        iconPlate.boxType = .custom
+        iconPlate.borderWidth = 0
+        iconPlate.cornerRadius = 6
+        iconPlate.fillColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.12)
+        iconPlate.translatesAutoresizingMaskIntoConstraints = false
+
+        let fallback = NSImage(systemSymbolName: "questionmark.square.dashed", accessibilityDescription: nil)
+        let image = NSImageView(image: structureIcon(for: type) ?? fallback ?? NSImage())
+        image.imageScaling = .scaleProportionallyUpOrDown
+        image.translatesAutoresizingMaskIntoConstraints = false
+        image.wantsLayer = true
+        image.layer?.magnificationFilter = .nearest
+        image.layer?.minificationFilter = .nearest
+        iconPlate.addSubview(image)
+
+        let title = NSTextField(labelWithString: type.title)
+        title.font = .systemFont(ofSize: 12)
+        title.textColor = .labelColor
+        title.lineBreakMode = .byTruncatingTail
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        let row = NSStackView(views: [iconPlate, title, spacer, checkbox])
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 8
+        row.edgeInsets = NSEdgeInsets(top: 3, left: 5, bottom: 3, right: 3)
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.setAccessibilityElement(false)
+
+        NSLayoutConstraint.activate([
+            iconPlate.widthAnchor.constraint(equalToConstant: 26),
+            iconPlate.heightAnchor.constraint(equalToConstant: 26),
+            image.centerXAnchor.constraint(equalTo: iconPlate.centerXAnchor),
+            image.centerYAnchor.constraint(equalTo: iconPlate.centerYAnchor),
+            image.widthAnchor.constraint(equalToConstant: 20),
+            image.heightAnchor.constraint(equalToConstant: 20),
+            row.heightAnchor.constraint(greaterThanOrEqualToConstant: 32)
+        ])
+        return row
+    }
+
+    private func structureIcon(for type: StructureOverlayType) -> NSImage? {
+        guard let url = Bundle.main.url(forResource: type.iconResourceName, withExtension: "png") else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
     }
 
     private func structureHeaderRow() -> NSStackView {
@@ -330,11 +420,9 @@ final class SidebarViewController: NSViewController {
 
     private func updateVisibleStructureTypes() {
         let visible = Set(visibleStructureTypes)
-        structureTypeCheckboxes.forEach { type, checkbox in
-            checkbox.isHidden = !visible.contains(type)
+        structureTypeRows.forEach { type, row in
+            row.isHidden = !visible.contains(type)
         }
-        let count = visible.count
-        structureAvailabilityLabel.stringValue = "\(count) available in \(selectedDimension.rawValue)"
     }
 
     private func updateStructureTypeCheckboxesEnabled() {
@@ -343,4 +431,8 @@ final class SidebarViewController: NSViewController {
         selectAllStructuresButton.isEnabled = enabled
         selectNoStructuresButton.isEnabled = enabled
     }
+}
+
+private final class FlippedView: NSView {
+    override var isFlipped: Bool { true }
 }
