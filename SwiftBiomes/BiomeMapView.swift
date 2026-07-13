@@ -450,10 +450,44 @@ final class BiomeMapView: NSView {
         structureStatus = .loading
         onStructureOverlayStatusChanged?(structureStatus)
         let provider = structureProvider
+        let progressiveTypes = StructureOverlayType.progressiveLoadingTypes(from: key.types)
 
         structureQueue.cancelAllOperations()
-        structureQueue.addOperation { [weak self] in
+        let operation = BlockOperation()
+        operation.addExecutionBlock { [weak self, weak operation] in
+            guard operation?.isCancelled == false else {
+                return
+            }
+
+            if !progressiveTypes.isEmpty {
+                let progressiveResult = provider.points(
+                    for: key.settings,
+                    visibleRect: key.rect,
+                    types: progressiveTypes
+                )
+                guard operation?.isCancelled == false else {
+                    return
+                }
+                OperationQueue.main.addOperation {
+                    guard let self,
+                          generation == self.structureGeneration,
+                          self.pendingStructureKey == key else {
+                        return
+                    }
+
+                    self.visibleStructures = progressiveResult.points
+                    self.selectedStructure = nil
+                    self.needsDisplay = true
+                }
+            }
+
+            guard operation?.isCancelled == false else {
+                return
+            }
             let result = provider.points(for: key.settings, visibleRect: key.rect, types: key.types)
+            guard operation?.isCancelled == false else {
+                return
+            }
             OperationQueue.main.addOperation {
                 guard let self,
                       generation == self.structureGeneration,
@@ -475,6 +509,7 @@ final class BiomeMapView: NSView {
                 self.needsDisplay = true
             }
         }
+        structureQueue.addOperation(operation)
     }
 
     private func nearestStructure(to point: NSPoint, maximumDistance: CGFloat) -> StructureOverlayPoint? {

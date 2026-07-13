@@ -296,6 +296,16 @@ struct SwiftBiomesTests {
         #expect(overworld.count + nether.count + end.count == StructureOverlayType.allCases.count)
     }
 
+    @Test func structureLoadingPublishesNonStrongholdsFirst() {
+        let selected: Set<StructureOverlayType> = [.village, .monument, .stronghold]
+
+        let progressive = StructureOverlayType.progressiveLoadingTypes(from: selected)
+
+        #expect(progressive == [.village, .monument])
+        #expect(StructureOverlayType.progressiveLoadingTypes(from: [.stronghold]).isEmpty)
+        #expect(StructureOverlayType.progressiveLoadingTypes(from: [.village]).isEmpty)
+    }
+
     @Test func worldInsightProviderUsesOverworldOnlyAnchors() {
         let provider = CubiomesWorldInsightProvider()
         let overworld = provider.snapshot(for: .init(settings: .sample, x: -1, z: -17))

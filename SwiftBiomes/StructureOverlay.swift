@@ -35,6 +35,15 @@ enum StructureOverlayType: String, CaseIterable, Sendable {
     case stronghold
     case slimeChunk
 
+    static func progressiveLoadingTypes(
+        from selectedTypes: Set<StructureOverlayType>
+    ) -> Set<StructureOverlayType> {
+        guard selectedTypes.contains(.stronghold), selectedTypes.count > 1 else {
+            return []
+        }
+        return selectedTypes.subtracting([.stronghold])
+    }
+
     static func available(in dimension: DimensionOption) -> [StructureOverlayType] {
         allCases.filter { $0.dimension == dimension }
     }
