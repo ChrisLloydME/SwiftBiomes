@@ -102,10 +102,6 @@ final class BiomeTileCache {
 
 final class BiomeMapRenderer {
     static let tilePixelSize = 128
-    static let recommendedWorkerCount = min(
-        8,
-        max(1, ProcessInfo.processInfo.activeProcessorCount)
-    )
 
     private let service: any BiomeProviding
 
@@ -145,20 +141,6 @@ final class BiomeMapRenderer {
             return 256
         }
         return 256
-    }
-
-    static func fallbackScales(for activeScale: Int) -> [Int] {
-        var scales: [Int] = []
-        var scale = activeScale * 4
-        while scale <= 256 {
-            scales.append(scale)
-            scale *= 4
-        }
-        return scales.reversed()
-    }
-
-    static func shouldRequestFallbackScale(_ scale: Int, for activeScale: Int) -> Bool {
-        scale == activeScale * 4
     }
 
     static func tileWorldSize(for pixelsPerBlock: Double) -> Int {
