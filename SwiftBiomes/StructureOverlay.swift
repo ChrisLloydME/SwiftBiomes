@@ -1,5 +1,11 @@
 import Foundation
 import CubiomesCore
+import os
+
+private let structureLoadingSignposter = OSSignposter(
+    subsystem: "com.LloydME.SwiftBiomes",
+    category: "StructureLoading"
+)
 
 enum StructureOverlayType: String, CaseIterable, Sendable {
     case village
@@ -207,14 +213,71 @@ struct StructureOverlayCacheKey: Equatable, Sendable {
     }
 }
 
+struct StructureOverlayCacheIdentity: Equatable, Sendable {
+    let settings: WorldSettings
+    let types: Set<StructureOverlayType>
+}
+
+struct StructureOverlayCacheEntry: Equatable, Sendable {
+    let identity: StructureOverlayCacheIdentity
+    let coverage: BiomeMapVisibleRect
+    let result: StructureOverlayResult
+
+    func contains(
+        settings: WorldSettings,
+        types: Set<StructureOverlayType>,
+        visibleRect: BiomeMapVisibleRect
+    ) -> Bool {
+        identity == StructureOverlayCacheIdentity(settings: settings, types: types) &&
+            coverage.contains(visibleRect)
+    }
+}
+
+private final class StrongholdLocationsCache: @unchecked Sendable {
+    private struct Entry {
+        let settings: WorldSettings
+        let locations: [StructureLocation]
+    }
+
+    private let lock = NSLock()
+    private var entry: Entry?
+
+    func locations(for settings: WorldSettings) -> [StructureLocation] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let entry, entry.settings == settings {
+            return entry.locations
+        }
+
+        let world = CubiomesWorld(
+            version: settings.version.version,
+            seed: settings.seed,
+            dimension: settings.dimension.dimension
+        )
+        let locations = world.strongholds().sorted {
+            ($0.blockZ, $0.blockX) < ($1.blockZ, $1.blockX)
+        }
+        entry = Entry(settings: settings, locations: locations)
+        return locations
+    }
+}
+
 protocol StructureOverlayProviding: Sendable {
     func points(for settings: WorldSettings, visibleRect: BiomeMapVisibleRect, types: Set<StructureOverlayType>) -> StructureOverlayResult
 }
 
-struct CubiomesStructureOverlayProvider: StructureOverlayProviding {
+final class CubiomesStructureOverlayProvider: StructureOverlayProviding, @unchecked Sendable {
+    private let strongholdCache = StrongholdLocationsCache()
+
     func points(for settings: WorldSettings, visibleRect: BiomeMapVisibleRect, types: Set<StructureOverlayType>) -> StructureOverlayResult {
         guard !types.isEmpty else {
             return StructureOverlayResult(points: [], status: .noneSelected)
+        }
+
+        let signpostState = structureLoadingSignposter.beginInterval("Load Structures")
+        defer {
+            structureLoadingSignposter.endInterval("Load Structures", signpostState)
         }
 
         do {
@@ -228,13 +291,21 @@ struct CubiomesStructureOverlayProvider: StructureOverlayProviding {
             var unsupported: [StructureOverlayType] = []
             for type in types.sorted(by: { $0.title < $1.title }) {
                 do {
-                    locations.append(contentsOf: try CubiomesCore.structures(
-                        version: settings.version.version,
-                        seed: settings.seed,
-                        dimension: settings.dimension.dimension,
-                        types: [type.coreType],
-                        rect: rect
-                    ))
+                    let matches: [StructureLocation]
+                    if type == .stronghold {
+                        matches = strongholdCache.locations(for: settings).filter {
+                            rect.contains(blockX: $0.blockX, blockZ: $0.blockZ)
+                        }
+                    } else {
+                        matches = try CubiomesCore.structures(
+                            version: settings.version.version,
+                            seed: settings.seed,
+                            dimension: settings.dimension.dimension,
+                            types: [type.coreType],
+                            rect: rect
+                        )
+                    }
+                    locations.append(contentsOf: matches)
                 } catch CubiomesError.unsupportedStructure(let unsupportedType, _, _) {
                     unsupported.append(StructureOverlayType(coreType: unsupportedType) ?? type)
                 } catch CubiomesError.unsupportedStructureConfig(let unsupportedType, _) {

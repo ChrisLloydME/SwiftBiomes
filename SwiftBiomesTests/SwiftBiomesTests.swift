@@ -107,6 +107,23 @@ struct SwiftBiomesTests {
         #expect(BiomeMapRenderer.sampleScale(for: 0.002) == 256)
     }
 
+    @Test func biomeTileCacheKeepsRecentlyUsedTiles() {
+        let cache = BiomeTileCache(limit: 2)
+        let first = tileKey(tileX: 0)
+        let second = tileKey(tileX: 1)
+        let third = tileKey(tileX: 2)
+        let image = NSImage(size: CGSize(width: 1, height: 1))
+
+        cache.insert(image, for: first)
+        cache.insert(image, for: second)
+        #expect(cache.image(for: first) != nil)
+        cache.insert(image, for: third)
+
+        #expect(cache.image(for: first) != nil)
+        #expect(cache.image(for: second) == nil)
+        #expect(cache.image(for: third) != nil)
+    }
+
     @Test func cubiomesBiomeGridKeepsExpectedRowOrder() throws {
         let service = CubiomesBiomeService()
         let request = BiomeGridDisplayRequest(
@@ -176,6 +193,24 @@ struct SwiftBiomesTests {
         #expect(result.points.allSatisfy { $0.type == .village })
     }
 
+    @Test func structureOverlayStrongholdsMatchCoreResults() throws {
+        let rect = BiomeMapVisibleRect(minX: -8192, minZ: -8192, maxX: 8192, maxZ: 8192)
+        let provider = CubiomesStructureOverlayProvider()
+        let result = provider.points(for: .sample, visibleRect: rect, types: [.stronghold])
+        let expected = try CubiomesCore.structures(
+            version: WorldSettings.sample.version.version,
+            seed: WorldSettings.sample.seed,
+            dimension: WorldSettings.sample.dimension.dimension,
+            types: [.stronghold],
+            rect: StructureRect(minX: rect.minX, minZ: rect.minZ, maxX: rect.maxX, maxZ: rect.maxZ)
+        )
+
+        let actualCoordinates = result.points.map { "\($0.x),\($0.z)" }
+        let expectedCoordinates = expected.map { "\($0.blockX),\($0.blockZ)" }
+        #expect(actualCoordinates == expectedCoordinates)
+        #expect(result.points.allSatisfy { $0.type == .stronghold && $0.isViable })
+    }
+
     @Test func structureOverlayCacheKeyIncludesDimension() {
         var netherSettings = WorldSettings.sample
         netherSettings.dimension = .nether
@@ -194,6 +229,32 @@ struct SwiftBiomesTests {
         let monumentKey = StructureOverlayCacheKey(settings: .sample, rect: rect, types: [.monument])
 
         #expect(villageKey.cacheKey != monumentKey.cacheKey)
+    }
+
+    @Test func structureOverlayCacheEntryReusesItsPaddedCoverage() {
+        let types: Set<StructureOverlayType> = [.village, .monument]
+        let coverage = BiomeMapVisibleRect(minX: -120, minZ: -120, maxX: 120, maxZ: 120)
+        let entry = StructureOverlayCacheEntry(
+            identity: StructureOverlayCacheIdentity(settings: .sample, types: types),
+            coverage: coverage,
+            result: StructureOverlayResult(points: [], status: .empty)
+        )
+
+        #expect(entry.contains(
+            settings: .sample,
+            types: types,
+            visibleRect: BiomeMapVisibleRect(minX: -100, minZ: -100, maxX: 100, maxZ: 100)
+        ))
+        #expect(!entry.contains(
+            settings: .sample,
+            types: types,
+            visibleRect: BiomeMapVisibleRect(minX: -121, minZ: -100, maxX: 100, maxZ: 100)
+        ))
+        #expect(!entry.contains(
+            settings: .sample,
+            types: [.village],
+            visibleRect: BiomeMapVisibleRect(minX: -100, minZ: -100, maxX: 100, maxZ: 100)
+        ))
     }
 
     @Test func structureOverlayProviderHonorsEmptyTypeSelection() {
@@ -286,6 +347,17 @@ struct SwiftBiomesTests {
         }
     }
 
+}
+
+private func tileKey(tileX: Int) -> BiomeMapTileKey {
+    BiomeMapTileKey(
+        settings: .sample,
+        tileX: tileX,
+        tileZ: 0,
+        tileWorldSize: 128,
+        pixelSize: 128,
+        sampleScale: 1
+    )
 }
 
 private struct StubBiomeService: BiomeProviding {

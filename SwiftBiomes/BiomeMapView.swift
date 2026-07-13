@@ -16,6 +16,7 @@ final class BiomeMapView: NSView {
             } else {
                 structureGeneration += 1
                 pendingStructureKey = nil
+                pendingStructureCoverage = nil
                 visibleStructures = []
                 selectedStructure = nil
                 structureStatus = .disabled
@@ -58,7 +59,9 @@ final class BiomeMapView: NSView {
     }()
 
     private var pendingKeys = Set<String>()
-    private var pendingStructureKey: String?
+    private var pendingStructureKey: StructureOverlayCacheKey?
+    private var pendingStructureCoverage: BiomeMapVisibleRect?
+    private var cachedStructureOverlay: StructureOverlayCacheEntry?
     private var visibleStructures: [StructureOverlayPoint] = []
     private var selectedStructure: StructureOverlayPoint?
     private var structureStatus: StructureOverlayStatus = .disabled
@@ -414,6 +417,7 @@ final class BiomeMapView: NSView {
 
         guard !selectedStructureTypes.isEmpty else {
             pendingStructureKey = nil
+            pendingStructureCoverage = nil
             visibleStructures = []
             selectedStructure = nil
             structureQueue.cancelAllOperations()
@@ -424,15 +428,24 @@ final class BiomeMapView: NSView {
             return
         }
 
-        let visible = visibleWorldRect(paddingRatio: 0.2)
-        let key = StructureOverlayCacheKey(settings: settings, rect: visible, types: selectedStructureTypes)
-        guard pendingStructureKey != key.cacheKey else {
+        let visible = visibleWorldRect()
+        if let cached = cachedStructureOverlay,
+           cached.contains(settings: settings, types: selectedStructureTypes, visibleRect: visible) {
             return
         }
 
+        if let pendingCoverage = pendingStructureCoverage,
+           pendingCoverage.contains(visible) {
+            return
+        }
+
+        let coverage = visibleWorldRect(paddingRatio: 0.2)
+        let key = StructureOverlayCacheKey(settings: settings, rect: coverage, types: selectedStructureTypes)
+
         structureGeneration += 1
         let generation = structureGeneration
-        pendingStructureKey = key.cacheKey
+        pendingStructureKey = key
+        pendingStructureCoverage = coverage
 
         structureStatus = .loading
         onStructureOverlayStatusChanged?(structureStatus)
@@ -444,10 +457,17 @@ final class BiomeMapView: NSView {
             OperationQueue.main.addOperation {
                 guard let self,
                       generation == self.structureGeneration,
-                      self.pendingStructureKey == key.cacheKey else {
+                      self.pendingStructureKey == key else {
                     return
                 }
 
+                self.pendingStructureKey = nil
+                self.pendingStructureCoverage = nil
+                self.cachedStructureOverlay = StructureOverlayCacheEntry(
+                    identity: StructureOverlayCacheIdentity(settings: key.settings, types: key.types),
+                    coverage: key.rect,
+                    result: result
+                )
                 self.visibleStructures = result.points
                 self.selectedStructure = nil
                 self.structureStatus = result.status
@@ -472,6 +492,8 @@ final class BiomeMapView: NSView {
     private func refreshStructureOverlay() {
         structureGeneration += 1
         pendingStructureKey = nil
+        pendingStructureCoverage = nil
+        cachedStructureOverlay = nil
         visibleStructures = []
         selectedStructure = nil
         structureQueue.cancelAllOperations()
