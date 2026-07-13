@@ -370,6 +370,68 @@ struct SwiftBiomesTests {
         }
     }
 
+    @Test func seedFinderCatalogUsesVersionAndDimension() throws {
+        let version = try #require(MinecraftVersionOption.supported.first { $0.label == "1.18" })
+        let overworld = SeedFinderCatalog.biomes(for: version, dimension: .overworld)
+        let nether = SeedFinderCatalog.biomes(for: version, dimension: .nether)
+
+        #expect(overworld.contains(SeedFinderBiomeOption(id: 14, name: "mushroom_fields")))
+        #expect(!nether.contains { $0.id == 14 })
+        #expect(overworld.map(\.title) == overworld.map(\.title).sorted { $0.localizedStandardCompare($1) == .orderedAscending })
+    }
+
+    @Test func seedFinderChecksInclusiveRangeInNumericOrder() throws {
+        let mushroomFields = SeedFinderBiomeOption(id: 14, name: "mushroom_fields")
+        let request = SeedFinderRequest(
+            settings: .sample,
+            startSeed: 260,
+            endSeed: 264,
+            x: 0,
+            z: 0,
+            targetBiome: mushroomFields,
+            maximumResults: 1
+        )
+        var progressEvents: [SeedFinderProgress] = []
+
+        let results = try CubiomesSeedFinder().findSeeds(
+            for: request,
+            cancellationToken: CubiomesSearchCancellationToken()
+        ) { progress in
+            progressEvents.append(progress)
+        }
+
+        #expect(results.map(\.seed) == [262])
+        #expect(progressEvents.map(\.currentSeed) == [260, 261, 262])
+        #expect(progressEvents.last?.checkedSeeds == 3)
+        #expect(progressEvents.last?.totalSeeds == 5)
+    }
+
+    @Test func seedFinderValidatesRangeAndFormatsQtColumns() throws {
+        let biome = SeedFinderBiomeOption(id: 1, name: "plains")
+        let invalid = SeedFinderRequest(
+            settings: .sample,
+            startSeed: 5,
+            endSeed: 4,
+            x: 0,
+            z: 0,
+            targetBiome: biome
+        )
+
+        #expect(throws: SeedFinderError.invalidRange) {
+            _ = try invalid.validatedSeedCount()
+        }
+        #expect(try SeedFinderRequest(
+            settings: .sample,
+            startSeed: -1,
+            endSeed: 1,
+            x: 0,
+            z: 0,
+            targetBiome: biome
+        ).validatedSeedCount() == 3)
+        #expect(SeedFinderResult(seed: -1).top16Hex == "ffff")
+        #expect(SeedFinderResult(seed: -1).lower48Hex == "ffffffffffff")
+    }
+
 }
 
 private func tileKey(tileX: Int) -> BiomeMapTileKey {
