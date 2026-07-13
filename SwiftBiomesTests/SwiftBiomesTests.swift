@@ -124,6 +124,19 @@ struct SwiftBiomesTests {
         #expect(cache.image(for: third) != nil)
     }
 
+    @Test func biomeTileCacheCanHoldTheVisibleWorkingSet() {
+        let cache = BiomeTileCache(limit: 2)
+        let keys = (0..<6).map { tileKey(tileX: $0) }
+        let image = NSImage(size: CGSize(width: 1, height: 1))
+
+        cache.ensureCapacity(atLeast: keys.count)
+        for key in keys {
+            cache.insert(image, for: key)
+        }
+
+        #expect(keys.allSatisfy { cache.image(for: $0) != nil })
+    }
+
     @Test func cubiomesBiomeGridKeepsExpectedRowOrder() throws {
         let service = CubiomesBiomeService()
         let request = BiomeGridDisplayRequest(

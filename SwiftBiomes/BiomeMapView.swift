@@ -243,6 +243,8 @@ final class BiomeMapView: NSView {
             }
         }
 
+        cache.ensureCapacity(atLeast: tiles.count * 2)
+
         for tile in tiles.sorted(by: { $0.distance < $1.distance }) {
             if let image = cache.image(for: tile.key) {
                 if tile.rect.intersects(visibleBounds) {

@@ -46,7 +46,7 @@ final class BiomeTileCache {
         var accessOrder: UInt64
     }
 
-    private let limit: Int
+    private var limit: Int
     private var images: [BiomeMapTileKey: Entry] = [:]
     private var nextAccessOrder: UInt64 = 0
     private let lock = NSLock()
@@ -84,6 +84,12 @@ final class BiomeTileCache {
         lock.lock()
         images.removeAll()
         nextAccessOrder = 0
+        lock.unlock()
+    }
+
+    func ensureCapacity(atLeast minimumCapacity: Int) {
+        lock.lock()
+        limit = max(limit, minimumCapacity)
         lock.unlock()
     }
 
