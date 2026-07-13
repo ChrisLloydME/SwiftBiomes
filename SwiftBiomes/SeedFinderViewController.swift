@@ -146,6 +146,9 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
         tableView.rowSizeStyle = .medium
+        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        tableView.frame = NSRect(x: 0, y: 0, width: 568, height: 190)
+        tableView.autoresizingMask = [.width]
         tableView.target = self
         tableView.doubleAction = #selector(useSelectedSeed)
         tableView.setAccessibilityIdentifier("seedFinder.results")
@@ -245,8 +248,9 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
     private func progressView() -> NSView {
         let stack = NSStackView(views: [progressIndicator, statusLabel])
         stack.orientation = .vertical
-        stack.alignment = .width
+        stack.alignment = .leading
         stack.spacing = 7
+        progressIndicator.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         return stack
     }
 
@@ -262,8 +266,11 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
 
         let stack = NSStackView(views: [title, scrollView])
         stack.orientation = .vertical
-        stack.alignment = .width
+        stack.alignment = .leading
         stack.spacing = 8
+        stack.setContentHuggingPriority(.fittingSizeCompression, for: .horizontal)
+        scrollView.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        scrollView.widthAnchor.constraint(greaterThanOrEqualToConstant: 520).isActive = true
         scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 190).isActive = true
         return stack
     }
