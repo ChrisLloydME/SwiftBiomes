@@ -1,5 +1,11 @@
 import AppKit
 import CubiomesCore
+import os
+
+private let mapLoadingSignposter = OSSignposter(
+    subsystem: "com.LloydME.SwiftBiomes",
+    category: "MapLoading"
+)
 
 struct BiomeMapTileKey: Hashable, Sendable {
     let settings: WorldSettings
@@ -27,12 +33,22 @@ struct BiomeMapVisibleRect: Equatable, Sendable {
     let minZ: Int32
     let maxX: Int32
     let maxZ: Int32
+
+    func contains(_ other: BiomeMapVisibleRect) -> Bool {
+        minX <= other.minX && minZ <= other.minZ &&
+            maxX >= other.maxX && maxZ >= other.maxZ
+    }
 }
 
 final class BiomeTileCache {
+    private struct Entry {
+        let image: NSImage
+        var accessOrder: UInt64
+    }
+
     private let limit: Int
-    private var images: [String: NSImage] = [:]
-    private var accessOrder: [String] = []
+    private var images: [BiomeMapTileKey: Entry] = [:]
+    private var nextAccessOrder: UInt64 = 0
     private let lock = NSLock()
 
     init(limit: Int = 128) {
@@ -45,12 +61,13 @@ final class BiomeTileCache {
             lock.unlock()
         }
 
-        guard let image = images[key.cacheKey] else {
+        guard var entry = images[key] else {
             return nil
         }
 
-        markUsed(key.cacheKey)
-        return image
+        entry.accessOrder = nextAccess()
+        images[key] = entry
+        return entry.image
     }
 
     func insert(_ image: NSImage, for key: BiomeMapTileKey) {
@@ -59,27 +76,26 @@ final class BiomeTileCache {
             lock.unlock()
         }
 
-        images[key.cacheKey] = image
-        markUsed(key.cacheKey)
+        images[key] = Entry(image: image, accessOrder: nextAccess())
         trimIfNeeded()
     }
 
     func removeAll() {
         lock.lock()
         images.removeAll()
-        accessOrder.removeAll()
+        nextAccessOrder = 0
         lock.unlock()
     }
 
-    private func markUsed(_ key: String) {
-        accessOrder.removeAll { $0 == key }
-        accessOrder.append(key)
+    private func nextAccess() -> UInt64 {
+        nextAccessOrder &+= 1
+        return nextAccessOrder
     }
 
     private func trimIfNeeded() {
-        while images.count > limit, let oldest = accessOrder.first {
+        while images.count > limit,
+              let oldest = images.min(by: { $0.value.accessOrder < $1.value.accessOrder })?.key {
             images.removeValue(forKey: oldest)
-            accessOrder.removeFirst()
         }
     }
 }
@@ -94,6 +110,11 @@ final class BiomeMapRenderer {
     }
 
     func renderTile(key: BiomeMapTileKey) -> BiomeMapTile {
+        let signpostState = mapLoadingSignposter.beginInterval("Render Tile")
+        defer {
+            mapLoadingSignposter.endInterval("Render Tile", signpostState)
+        }
+
         let originX = key.tileX * key.tileWorldSize
         let originZ = key.tileZ * key.tileWorldSize
         if let tile = renderBatchTile(key: key, originX: originX, originZ: originZ) {
