@@ -37,6 +37,24 @@ final class MainSplitViewController: NSSplitViewController {
         sidebarController.focusCoordinateFields()
     }
 
+    func presentSeedFinder() {
+        let controller = SeedFinderViewController(
+            settings: viewModel.settings,
+            x: viewModel.x,
+            z: viewModel.z
+        )
+        controller.onUseSeed = { [weak self] seed in
+            guard let self else {
+                return
+            }
+            viewModel.settings.seed = seed
+            sidebarController.setSeed(seed)
+            mapView.settings = viewModel.settings
+            viewModel.submitQuery()
+        }
+        presentAsSheet(controller)
+    }
+
     private func configureMap() {
         mapView.settings = viewModel.settings
         mapView.translatesAutoresizingMaskIntoConstraints = false
@@ -116,6 +134,10 @@ final class MainSplitViewController: NSSplitViewController {
 
         sidebarController.onOverlayChanged = { [weak self] enabled in
             self?.mapView.overlayEnabled = enabled
+        }
+
+        sidebarController.onSeedFinderRequested = { [weak self] in
+            self?.presentSeedFinder()
         }
 
         sidebarController.onStructureTypesChanged = { [weak self] types in

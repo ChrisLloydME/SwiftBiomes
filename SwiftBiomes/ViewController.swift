@@ -52,11 +52,11 @@ final class ViewController: NSViewController, NSToolbarDelegate {
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.sidebarTrackingSeparator, .locateOrigin, .zoomOut, .zoomIn, .refreshMap, .flexibleSpace, .queryFocus]
+        [.sidebarTrackingSeparator, .locateOrigin, .zoomOut, .zoomIn, .refreshMap, .flexibleSpace, .findSeeds, .queryFocus]
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.sidebarTrackingSeparator, .locateOrigin, .zoomOut, .zoomIn, .refreshMap, .flexibleSpace, .queryFocus]
+        [.sidebarTrackingSeparator, .locateOrigin, .zoomOut, .zoomIn, .refreshMap, .flexibleSpace, .findSeeds, .queryFocus]
     }
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
@@ -69,6 +69,8 @@ final class ViewController: NSViewController, NSToolbarDelegate {
             return toolbarItem(identifier: itemIdentifier, label: "Zoom In", symbolName: "plus.magnifyingglass", action: #selector(zoomIn))
         case .refreshMap:
             return toolbarItem(identifier: itemIdentifier, label: "Refresh", symbolName: "arrow.clockwise", action: #selector(refresh))
+        case .findSeeds:
+            return toolbarItem(identifier: itemIdentifier, label: "Find Seeds", symbolName: "magnifyingglass", action: #selector(findSeeds))
         case .queryFocus:
             return toolbarItem(identifier: itemIdentifier, label: "Query", symbolName: "text.magnifyingglass", action: #selector(focusQuery))
         default:
@@ -106,6 +108,10 @@ final class ViewController: NSViewController, NSToolbarDelegate {
     @objc private func focusQuery() {
         mainController.focusQuery()
     }
+
+    @objc private func findSeeds() {
+        mainController.presentSeedFinder()
+    }
 }
 
 private extension NSToolbarItem.Identifier {
@@ -113,5 +119,6 @@ private extension NSToolbarItem.Identifier {
     static let zoomOut = NSToolbarItem.Identifier("SwiftBiomesZoomOut")
     static let zoomIn = NSToolbarItem.Identifier("SwiftBiomesZoomIn")
     static let refreshMap = NSToolbarItem.Identifier("SwiftBiomesRefreshMap")
+    static let findSeeds = NSToolbarItem.Identifier("SwiftBiomesFindSeeds")
     static let queryFocus = NSToolbarItem.Identifier("SwiftBiomesQueryFocus")
 }

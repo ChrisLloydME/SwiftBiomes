@@ -2,6 +2,7 @@ import AppKit
 
 final class SidebarViewController: NSViewController {
     var onQueryRequested: ((String, String, String, Int, Int) -> Void)?
+    var onSeedFinderRequested: (() -> Void)?
     var onOverlayChanged: ((Bool) -> Void)?
     var onStructureTypesChanged: ((Set<StructureOverlayType>) -> Void)?
 
@@ -16,6 +17,7 @@ final class SidebarViewController: NSViewController {
     private let selectNoStructuresButton = NSButton(title: "None", target: nil, action: nil)
     private var structureTypeCheckboxes: [StructureOverlayType: NSButton] = [:]
     private var structureTypeRows: [StructureOverlayType: NSView] = [:]
+    private let findSeedsButton = NSButton(title: "Find Seeds…", target: nil, action: nil)
     private let queryButton = NSButton(title: "Lookup", target: nil, action: nil)
 
     private var selectedDimension: DimensionOption {
@@ -54,6 +56,10 @@ final class SidebarViewController: NSViewController {
         zField.stringValue = "\(z)"
     }
 
+    func setSeed(_ seed: Int64) {
+        seedField.stringValue = "\(seed)"
+    }
+
     func focusCoordinateFields() {
         view.window?.makeFirstResponder(xField)
     }
@@ -67,12 +73,28 @@ final class SidebarViewController: NSViewController {
         dimensionControl.selectedSegment = DimensionOption.allCases.firstIndex(of: WorldSettings.sample.dimension) ?? 0
         dimensionControl.segmentStyle = .texturedRounded
         dimensionControl.controlSize = .regular
+
+        findSeedsButton.bezelStyle = .rounded
+        findSeedsButton.controlSize = .regular
+        findSeedsButton.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+        findSeedsButton.imagePosition = .imageLeading
+        findSeedsButton.target = self
+        findSeedsButton.action = #selector(findSeeds)
+
         queryButton.bezelStyle = .rounded
         queryButton.controlSize = .large
         queryButton.font = .systemFont(ofSize: 13, weight: .semibold)
         queryButton.keyEquivalent = "\r"
         queryButton.target = self
         queryButton.action = #selector(query)
+
+        seedField.setAccessibilityIdentifier("world.seed")
+        xField.setAccessibilityIdentifier("world.x")
+        zField.setAccessibilityIdentifier("world.z")
+        versionPopup.setAccessibilityIdentifier("world.version")
+        dimensionControl.setAccessibilityIdentifier("world.dimension")
+        findSeedsButton.setAccessibilityIdentifier("seedFinder.open")
+        queryButton.setAccessibilityIdentifier("world.lookup")
 
         [seedField, xField, zField].forEach { field in
             field.target = self
@@ -152,6 +174,8 @@ final class SidebarViewController: NSViewController {
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(divider())
         stack.setCustomSpacing(16, after: stack.arrangedSubviews.last!)
+        stack.addArrangedSubview(findSeedsButton)
+        stack.setCustomSpacing(8, after: findSeedsButton)
         stack.addArrangedSubview(queryButton)
 
         guard let scrollView = view as? NSScrollView else {
@@ -174,6 +198,7 @@ final class SidebarViewController: NSViewController {
             seedField.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
             versionPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
             dimensionControl.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
+            findSeedsButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 28),
             queryButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 32)
         ])
     }
@@ -376,6 +401,10 @@ final class SidebarViewController: NSViewController {
             versionPopup.indexOfSelectedItem,
             dimensionControl.selectedSegment
         )
+    }
+
+    @objc private func findSeeds() {
+        onSeedFinderRequested?()
     }
 
     @objc private func dimensionChanged() {
