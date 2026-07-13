@@ -107,6 +107,17 @@ struct SwiftBiomesTests {
         #expect(BiomeMapRenderer.sampleScale(for: 0.002) == 256)
     }
 
+    @Test func mapRendererOnlyRequestsTheNearestMissingFallbackScale() {
+        let fallbackScales = BiomeMapRenderer.fallbackScales(for: 1)
+
+        #expect(fallbackScales == [256, 64, 16, 4])
+        #expect(fallbackScales.filter {
+            BiomeMapRenderer.shouldRequestFallbackScale($0, for: 1)
+        } == [4])
+        #expect(BiomeMapRenderer.fallbackScales(for: 256).isEmpty)
+        #expect((1...8).contains(BiomeMapRenderer.recommendedWorkerCount))
+    }
+
     @Test func biomeTileCacheKeepsRecentlyUsedTiles() {
         let cache = BiomeTileCache(limit: 2)
         let first = tileKey(tileX: 0)

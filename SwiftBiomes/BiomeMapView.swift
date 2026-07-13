@@ -46,7 +46,7 @@ final class BiomeMapView: NSView {
         let queue = OperationQueue()
         queue.name = "SwiftBiomes.TileRenderer"
         queue.qualityOfService = .userInitiated
-        queue.maxConcurrentOperationCount = 4
+        queue.maxConcurrentOperationCount = BiomeMapRenderer.recommendedWorkerCount
         return queue
     }()
     private let structureProvider: any StructureOverlayProviding = CubiomesStructureOverlayProvider()
@@ -195,25 +195,30 @@ final class BiomeMapView: NSView {
 
     private func drawTiles() {
         let activeScale = BiomeMapRenderer.sampleScale(for: pixelsPerBlock)
-        let fallbackScales = fallbackScales(for: activeScale)
+        let fallbackScales = BiomeMapRenderer.fallbackScales(for: activeScale)
 
         for scale in fallbackScales {
-            drawTileLayer(sampleScale: scale, paddingRatio: 0.08, fillMissing: false)
+            drawTileLayer(
+                sampleScale: scale,
+                paddingRatio: 0.08,
+                fillMissing: false,
+                requestMissing: BiomeMapRenderer.shouldRequestFallbackScale(scale, for: activeScale)
+            )
         }
-        drawTileLayer(sampleScale: activeScale, paddingRatio: activeScale >= 256 ? 0.12 : 0.35, fillMissing: fallbackScales.isEmpty)
+        drawTileLayer(
+            sampleScale: activeScale,
+            paddingRatio: activeScale >= 256 ? 0.12 : 0.35,
+            fillMissing: fallbackScales.isEmpty,
+            requestMissing: true
+        )
     }
 
-    private func fallbackScales(for activeScale: Int) -> [Int] {
-        var scales: [Int] = []
-        var scale = activeScale * 4
-        while scale <= 256 {
-            scales.append(scale)
-            scale *= 4
-        }
-        return scales.reversed()
-    }
-
-    private func drawTileLayer(sampleScale: Int, paddingRatio: Double, fillMissing: Bool) {
+    private func drawTileLayer(
+        sampleScale: Int,
+        paddingRatio: Double,
+        fillMissing: Bool,
+        requestMissing: Bool
+    ) {
         let tileWorldSize = BiomeMapRenderer.tileWorldSize(forSampleScale: sampleScale)
         let pixelSize = BiomeMapRenderer.tilePixelSize
         let visible = visibleWorldRect(paddingRatio: paddingRatio)
@@ -253,7 +258,9 @@ final class BiomeMapView: NSView {
                     NSColor.controlBackgroundColor.setFill()
                     tile.rect.fill()
                 }
-                requestTile(for: tile.key)
+                if requestMissing {
+                    requestTile(for: tile.key)
+                }
             }
         }
     }
