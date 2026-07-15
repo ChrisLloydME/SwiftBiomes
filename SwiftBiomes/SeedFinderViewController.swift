@@ -1,5 +1,9 @@
 import AppKit
 
+private final class SeedFinderConditionStackView: NSStackView {
+    override var isFlipped: Bool { true }
+}
+
 final class SeedFinderViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
     var onUseWorld: ((WorldSettings) -> Void)?
 
@@ -12,16 +16,19 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
     private let dimensionPopup = NSPopUpButton()
     private let addBiomeButton = NSButton(title: "Add Biome", target: nil, action: nil)
     private let addStructureButton = NSButton(title: "Add Structure", target: nil, action: nil)
-    private let conditionStack = NSStackView()
-    private let emptyConditionsLabel = NSTextField(wrappingLabelWithString: "Add a biome or structure condition to begin.")
+    private let conditionStack = SeedFinderConditionStackView()
+    private let emptyConditionsLabel = NSTextField(wrappingLabelWithString: "Add a biome or structure to describe the world you want to find.")
 
     private let startSeedField = NSTextField(string: "0")
     private let endSeedField = NSTextField(string: "1000")
     private let resultLimitPopup = NSPopUpButton()
     private let progressIndicator = NSProgressIndicator()
-    private let statusLabel = NSTextField(wrappingLabelWithString: "Ready to search.")
+    private let statusLabel = NSTextField(wrappingLabelWithString: "Ready. Review the conditions, then start the search.")
     private let tableView = NSTableView()
-    private let clearButton = NSButton(title: "Clear Results", target: nil, action: nil)
+    private let resultsScrollView = NSScrollView()
+    private let resultsPlaceholder = NSTextField(wrappingLabelWithString: "No results yet. Start a search to see matching seeds.")
+    private let resultsPlaceholderView = NSBox()
+    private let clearButton = NSButton(title: "Clear", target: nil, action: nil)
     private let closeButton = NSButton(title: "Close", target: nil, action: nil)
     private let useSeedButton = NSButton(title: "Use This Seed", target: nil, action: nil)
     private let searchButton = NSButton(title: "Start Search", target: nil, action: nil)
@@ -103,7 +110,7 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         conditionStack.orientation = .vertical
         conditionStack.alignment = .width
         conditionStack.spacing = 8
-        conditionStack.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 6, right: 0)
+        conditionStack.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         conditionStack.setContentHuggingPriority(.required, for: .vertical)
         emptyConditionsLabel.alignment = .center
         emptyConditionsLabel.textColor = .secondaryLabelColor
@@ -128,10 +135,30 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.font = .systemFont(ofSize: 12)
 
+        resultsPlaceholder.alignment = .center
+        resultsPlaceholder.font = .systemFont(ofSize: 12)
+        resultsPlaceholder.textColor = .secondaryLabelColor
+        resultsPlaceholderView.boxType = .custom
+        resultsPlaceholderView.borderColor = .separatorColor
+        resultsPlaceholderView.borderWidth = 1
+        resultsPlaceholderView.fillColor = .controlBackgroundColor
+        resultsPlaceholderView.cornerRadius = 6
+        if let placeholderContent = resultsPlaceholderView.contentView {
+            resultsPlaceholder.translatesAutoresizingMaskIntoConstraints = false
+            placeholderContent.addSubview(resultsPlaceholder)
+            NSLayoutConstraint.activate([
+                resultsPlaceholder.leadingAnchor.constraint(equalTo: placeholderContent.leadingAnchor, constant: 12),
+                resultsPlaceholder.trailingAnchor.constraint(equalTo: placeholderContent.trailingAnchor, constant: -12),
+                resultsPlaceholder.centerYAnchor.constraint(equalTo: placeholderContent.centerYAnchor)
+            ])
+        }
+
         clearButton.bezelStyle = .rounded
+        clearButton.controlSize = .small
         clearButton.target = self
         clearButton.action = #selector(clearResults)
         clearButton.isEnabled = false
+        clearButton.isHidden = true
 
         closeButton.bezelStyle = .rounded
         closeButton.target = self
@@ -168,7 +195,7 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
     private func configureTable() {
         let columns: [(String, String, CGFloat)] = [
             ("seed", "Seed", 260),
-            ("match", "Matched", 350)
+            ("match", "Conditions", 350)
         ]
         columns.forEach { identifier, title, width in
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(identifier))
@@ -185,7 +212,7 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         tableView.allowsEmptySelection = true
         tableView.rowSizeStyle = .medium
         tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
-        tableView.frame = NSRect(x: 0, y: 0, width: 640, height: 88)
+        tableView.frame = NSRect(x: 0, y: 0, width: 640, height: 96)
         tableView.autoresizingMask = [.width]
         tableView.target = self
         tableView.doubleAction = #selector(useSelectedSeed)
@@ -202,14 +229,13 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         let content = NSStackView()
         content.orientation = .vertical
         content.alignment = .width
-        content.spacing = 10
-        content.edgeInsets = NSEdgeInsets(top: 18, left: 20, bottom: 16, right: 20)
+        content.spacing = 14
+        content.edgeInsets = NSEdgeInsets(top: 20, left: 24, bottom: 18, right: 24)
         content.translatesAutoresizingMaskIntoConstraints = false
 
         content.addArrangedSubview(headerView())
-        content.addArrangedSubview(worldView())
+        content.addArrangedSubview(searchSettingsView())
         content.addArrangedSubview(conditionsView())
-        content.addArrangedSubview(searchOptionsView())
         content.addArrangedSubview(progressView())
         content.addArrangedSubview(resultsView())
         content.addArrangedSubview(buttonRow())
@@ -224,13 +250,9 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
     }
 
     private func headerView() -> NSView {
-        let image = NSImageView(image: NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil) ?? NSImage())
-        image.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 20, weight: .medium)
-        image.contentTintColor = .controlAccentColor
-
         let title = NSTextField(labelWithString: "Find Matching Seeds")
-        title.font = .systemFont(ofSize: 18, weight: .semibold)
-        let subtitle = NSTextField(labelWithString: "A seed must satisfy every condition below.")
+        title.font = .systemFont(ofSize: 20, weight: .semibold)
+        let subtitle = NSTextField(labelWithString: "Describe the world you want. Every condition must match.")
         subtitle.font = .systemFont(ofSize: 12)
         subtitle.textColor = .secondaryLabelColor
 
@@ -238,35 +260,47 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = 3
-
-        let row = NSStackView(views: [image, labels])
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 10
-        return row
+        return labels
     }
 
-    private func worldView() -> NSView {
-        let title = sectionTitle("Search settings")
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let controls = NSStackView(views: [
+    private func searchSettingsView() -> NSView {
+        let worldControls = NSStackView(views: [
             inlineLabeledControl("Version", versionPopup),
             inlineLabeledControl("Dimension", dimensionPopup)
         ])
-        controls.orientation = .horizontal
-        controls.alignment = .centerY
-        controls.spacing = 16
+        worldControls.orientation = .horizontal
+        worldControls.alignment = .centerY
+        worldControls.spacing = 20
+        versionPopup.widthAnchor.constraint(equalToConstant: 110).isActive = true
+        dimensionPopup.widthAnchor.constraint(equalToConstant: 140).isActive = true
 
-        let row = NSStackView(views: [title, spacer, controls])
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 12
-        return row
+        let rangeControls = NSStackView(views: [
+            inlineLabeledControl("From", startSeedField),
+            inlineLabeledControl("to", endSeedField),
+            inlineLabeledControl("Maximum results", resultLimitPopup)
+        ])
+        rangeControls.orientation = .horizontal
+        rangeControls.alignment = .centerY
+        rangeControls.spacing = 14
+        startSeedField.widthAnchor.constraint(equalToConstant: 98).isActive = true
+        endSeedField.widthAnchor.constraint(equalToConstant: 98).isActive = true
+        resultLimitPopup.widthAnchor.constraint(equalToConstant: 76).isActive = true
+        startSeedField.toolTip = "First seed to check, included"
+        endSeedField.toolTip = "Last seed to check, included"
+
+        let stack = NSStackView(views: [
+            formRow(label: "Minecraft", content: worldControls),
+            formRow(label: "Seeds to check", content: rangeControls)
+        ])
+        stack.orientation = .vertical
+        stack.alignment = .width
+        stack.spacing = 10
+        stack.toolTip = "Seeds are checked in order, including both ends of the range."
+        return stack
     }
 
     private func conditionsView() -> NSView {
-        let title = sectionTitle("Required conditions")
+        let title = sectionTitle("Conditions")
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let actions = NSStackView(views: [spacer, addBiomeButton, addStructureButton])
@@ -280,10 +314,12 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         heading.spacing = 12
 
         let scrollView = NSScrollView()
-        scrollView.borderType = .noBorder
+        scrollView.borderType = .bezelBorder
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
-        scrollView.drawsBackground = false
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = .controlBackgroundColor
+        scrollView.setContentHuggingPriority(.defaultLow, for: .vertical)
 
         conditionStack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.documentView = conditionStack
@@ -292,40 +328,15 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
             conditionStack.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
             conditionStack.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
             conditionStack.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
-            scrollView.heightAnchor.constraint(equalToConstant: 176)
+            scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 174)
         ])
 
         let stack = NSStackView(views: [heading, scrollView])
         stack.orientation = .vertical
         stack.alignment = .width
-        stack.spacing = 8
+        stack.spacing = 10
+        stack.setContentHuggingPriority(.defaultLow, for: .vertical)
         return stack
-    }
-
-    private func searchOptionsView() -> NSView {
-        let title = sectionTitle("Seed range")
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        let range = NSStackView(views: [
-            inlineLabeledControl("From", startSeedField),
-            inlineLabeledControl("to", endSeedField),
-            inlineLabeledControl("Find up to", resultLimitPopup, suffix: "results")
-        ])
-        range.orientation = .horizontal
-        range.alignment = .centerY
-        range.spacing = 12
-        startSeedField.widthAnchor.constraint(equalToConstant: 104).isActive = true
-        endSeedField.widthAnchor.constraint(equalToConstant: 104).isActive = true
-        startSeedField.toolTip = "First seed to check (included)"
-        endSeedField.toolTip = "Last seed to check (included)"
-
-        let row = NSStackView(views: [title, spacer, range])
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 12
-        row.toolTip = "Seeds are checked in order. A search can check up to \(SeedFinderRequest.maximumSeedCount.formatted()) seeds."
-        return row
     }
 
     private func progressView() -> NSView {
@@ -338,38 +349,35 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
     }
 
     private func resultsView() -> NSView {
-        let title = sectionTitle("Matching Seeds")
-        let hint = NSTextField(labelWithString: "Double-click a seed, or select it and choose Use Seed.")
-        hint.font = .systemFont(ofSize: 11)
-        hint.textColor = .secondaryLabelColor
+        let title = sectionTitle("Results")
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let heading = NSStackView(views: [title, spacer, hint])
+        let heading = NSStackView(views: [title, spacer, clearButton])
         heading.orientation = .horizontal
         heading.alignment = .centerY
 
-        let scrollView = NSScrollView()
-        scrollView.borderType = .bezelBorder
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        scrollView.documentView = tableView
+        resultsScrollView.borderType = .bezelBorder
+        resultsScrollView.hasVerticalScroller = true
+        resultsScrollView.autohidesScrollers = true
+        resultsScrollView.documentView = tableView
+        resultsScrollView.isHidden = true
 
-        let stack = NSStackView(views: [heading, scrollView])
+        let stack = NSStackView(views: [heading, resultsPlaceholderView, resultsScrollView])
         stack.orientation = .vertical
-        stack.alignment = .leading
+        stack.alignment = .width
         stack.spacing = 7
         stack.setContentHuggingPriority(.fittingSizeCompression, for: .horizontal)
-        scrollView.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        scrollView.widthAnchor.constraint(greaterThanOrEqualToConstant: 600).isActive = true
-        scrollView.heightAnchor.constraint(equalToConstant: 88).isActive = true
+        resultsPlaceholderView.heightAnchor.constraint(equalToConstant: 54).isActive = true
+        resultsScrollView.widthAnchor.constraint(greaterThanOrEqualToConstant: 600).isActive = true
+        resultsScrollView.heightAnchor.constraint(equalToConstant: 96).isActive = true
         return stack
     }
 
     private func buttonRow() -> NSView {
+        useSeedButton.title = "Use Seed"
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        useSeedButton.title = "Use Seed"
-        let row = NSStackView(views: [clearButton, spacer, closeButton, useSeedButton, searchButton])
+        let row = NSStackView(views: [spacer, closeButton, useSeedButton, searchButton])
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 8
@@ -380,6 +388,22 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         let label = NSTextField(labelWithString: title)
         label.font = .systemFont(ofSize: 13, weight: .semibold)
         return label
+    }
+
+    private func formRow(label title: String, content: NSView) -> NSView {
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = .secondaryLabelColor
+        label.alignment = .right
+        label.widthAnchor.constraint(equalToConstant: 92).isActive = true
+
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let row = NSStackView(views: [label, content, spacer])
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 12
+        return row
     }
 
     private func inlineLabeledControl(_ title: String, _ control: NSView, suffix: String? = nil) -> NSView {
@@ -530,7 +554,7 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
                 progressIndicator.doubleValue = 1
                 statusLabel.stringValue = "No seeds in this range matched every condition."
             } else {
-                statusLabel.stringValue = "Found \(found.count.formatted()) matching seed\(found.count == 1 ? "" : "s")."
+                statusLabel.stringValue = "Found \(found.count.formatted()) matching seed\(found.count == 1 ? "" : "s"). Select one to use it."
                 tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
                 tableView.scrollRowToVisible(0)
             }
@@ -556,6 +580,9 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         }
         conditionRows.forEach { $0.setEditingEnabled(!searching) }
         clearButton.isEnabled = !searching && !results.isEmpty
+        clearButton.isHidden = results.isEmpty
+        resultsPlaceholderView.isHidden = !results.isEmpty
+        resultsScrollView.isHidden = results.isEmpty
         updateSelectionState()
     }
 
@@ -572,7 +599,7 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         guard results.indices.contains(row), let tableColumn else { return nil }
         let value = tableColumn.identifier.rawValue == "seed"
             ? "\(results[row].seed)"
-            : "All \(resultConditionCount) condition\(resultConditionCount == 1 ? "" : "s")"
+            : "\(resultConditionCount) of \(resultConditionCount) matched"
         let label = NSTextField(labelWithString: value)
         label.font = tableColumn.identifier.rawValue == "seed"
             ? .monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
@@ -601,7 +628,7 @@ final class SeedFinderViewController: NSViewController, NSTableViewDataSource, N
         tableView.reloadData()
         progressIndicator.doubleValue = 0
         statusLabel.textColor = .secondaryLabelColor
-        statusLabel.stringValue = "Ready to search."
+        statusLabel.stringValue = "Ready. Review the conditions, then start the search."
         setSearching(false)
     }
 

@@ -34,7 +34,7 @@ final class SeedFinderConditionRowView: NSBox {
 
         boxType = .primary
         titlePosition = .noTitle
-        contentViewMargins = NSSize(width: 12, height: 9)
+        contentViewMargins = NSSize(width: 14, height: 12)
         setContentHuggingPriority(.required, for: .vertical)
         configureControls()
         buildLayout()
@@ -156,12 +156,12 @@ final class SeedFinderConditionRowView: NSBox {
     private func buildLayout() {
         guard let contentView else { return }
 
-        let title = NSTextField(labelWithString: kind == .biome ? "Biome at coordinates" : "Structure in an area")
+        let title = NSTextField(labelWithString: kind == .biome ? "Find a biome" : "Find a structure")
         title.font = .systemFont(ofSize: 13, weight: .semibold)
 
         let explanation = NSTextField(wrappingLabelWithString: kind == .biome
-            ? "The biome at this exact X/Z position must match."
-            : "At least one valid structure must generate inside the square search area.")
+            ? "Keep seeds where this biome appears at the map position below."
+            : "Keep seeds with at least one valid structure in the area below.")
         explanation.font = .systemFont(ofSize: 11)
         explanation.textColor = .secondaryLabelColor
 
@@ -177,35 +177,42 @@ final class SeedFinderConditionRowView: NSBox {
         heading.alignment = .top
         heading.spacing = 8
 
-        let position = NSStackView(views: [inlineField(label: "X", field: xField), inlineField(label: "Z", field: zField)])
-        position.orientation = .horizontal
-        position.alignment = .centerY
-        position.distribution = .fillEqually
-        position.spacing = 10
+        let positionFields = NSStackView(views: [inlineField(label: "X", field: xField), inlineField(label: "Z", field: zField)])
+        positionFields.orientation = .horizontal
+        positionFields.alignment = .centerY
+        positionFields.spacing = 12
+        let positionHelp = NSTextField(wrappingLabelWithString: "Use the X and Z values shown on the map. X is east/west; Z is north/south.")
+        positionHelp.font = .systemFont(ofSize: 11)
+        positionHelp.textColor = .secondaryLabelColor
+        let position = NSStackView(views: [positionFields, positionHelp])
+        position.orientation = .vertical
+        position.alignment = .leading
+        position.spacing = 3
 
         var rows: [[NSView]] = [
-            [formLabel(kind == .biome ? "Biome" : "Structure"), targetPopup],
-            [formLabel(kind == .biome ? "Coordinates" : "Search center"), position]
+            [formLabel(kind == .biome ? "Biome to find" : "Structure to find"), targetPopup],
+            [formLabel(kind == .biome ? "Map position" : "Search around"), position]
         ]
         if kind == .structure {
-            let radius = NSStackView(views: [radiusField, NSTextField(labelWithString: "blocks each way")])
+            let radius = NSStackView(views: [radiusField, NSTextField(labelWithString: "blocks from the center, in every direction")])
             radius.orientation = .horizontal
             radius.alignment = .centerY
             radius.spacing = 8
             radiusField.widthAnchor.constraint(equalToConstant: 110).isActive = true
-            rows.append([formLabel("Search range"), radius])
+            rows.append([formLabel("Search distance"), radius])
         }
 
         let grid = NSGridView(views: rows)
-        grid.rowSpacing = 6
-        grid.columnSpacing = 12
+        grid.rowSpacing = 10
+        grid.columnSpacing = 14
         grid.column(at: 0).xPlacement = .trailing
+        grid.column(at: 0).width = 104
         grid.column(at: 1).xPlacement = .fill
 
         let stack = NSStackView(views: [heading, grid, availabilityLabel])
         stack.orientation = .vertical
         stack.alignment = .width
-        stack.spacing = 7
+        stack.spacing = 10
         stack.setContentHuggingPriority(.required, for: .vertical)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
@@ -230,6 +237,7 @@ final class SeedFinderConditionRowView: NSBox {
         let label = NSTextField(labelWithString: title)
         label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         label.textColor = .secondaryLabelColor
+        field.widthAnchor.constraint(equalToConstant: 98).isActive = true
         let row = NSStackView(views: [label, field])
         row.orientation = .horizontal
         row.alignment = .centerY

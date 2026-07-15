@@ -75,7 +75,7 @@ final class SwiftBiomesUITests: XCTestCase {
 
         let result = sheet.staticTexts["262"].firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 10))
-        XCTAssertTrue(sheet.staticTexts["All 2 conditions"].exists)
+        XCTAssertTrue(sheet.staticTexts["2 of 2 matched"].exists)
         result.click()
 
         let useSeedButton = sheet.buttons["seedFinder.useSeed"]
