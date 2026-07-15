@@ -43,12 +43,12 @@ final class MainSplitViewController: NSSplitViewController {
             x: viewModel.x,
             z: viewModel.z
         )
-        controller.onUseSeed = { [weak self] seed in
+        controller.onUseWorld = { [weak self] settings in
             guard let self else {
                 return
             }
-            viewModel.settings.seed = seed
-            sidebarController.setSeed(seed)
+            viewModel.settings = settings
+            sidebarController.setWorld(settings)
             mapView.settings = viewModel.settings
             viewModel.submitQuery()
         }

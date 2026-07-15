@@ -48,6 +48,24 @@ final class SwiftBiomesUITests: XCTestCase {
         }
         XCTAssertTrue(sheet.waitForExistence(timeout: 10))
 
+        let versionPopup = sheet.popUpButtons["seedFinder.version"]
+        XCTAssertEqual(versionPopup.value as? String, "1.18")
+        selectMenuItem("1.19", in: versionPopup, app: app)
+        XCTAssertEqual(versionPopup.value as? String, "1.19")
+        selectMenuItem("1.18", in: versionPopup, app: app)
+
+        sheet.buttons["seedFinder.addBiome"].click()
+        let biomePopups = sheet.popUpButtons.matching(identifier: "seedFinder.condition.biome")
+        XCTAssertEqual(biomePopups.count, 2)
+        selectMenuItem("Mushroom Fields", in: biomePopups.element(boundBy: 1), app: app)
+
+        sheet.buttons["seedFinder.addStructure"].click()
+        let structurePopup = sheet.popUpButtons["seedFinder.condition.structure"]
+        XCTAssertTrue(structurePopup.waitForExistence(timeout: 5))
+        XCTAssertFalse((structurePopup.value as? String ?? "").isEmpty)
+        sheet.buttons.matching(identifier: "seedFinder.condition.remove").element(boundBy: 2).click()
+        XCTAssertFalse(structurePopup.exists)
+
         replaceText(in: sheet.textFields["seedFinder.startSeed"], with: "260")
         replaceText(in: sheet.textFields["seedFinder.endSeed"], with: "264")
 
@@ -57,6 +75,7 @@ final class SwiftBiomesUITests: XCTestCase {
 
         let result = sheet.staticTexts["262"].firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 10))
+        XCTAssertTrue(sheet.staticTexts["All 2 conditions"].exists)
         result.click()
 
         let useSeedButton = sheet.buttons["seedFinder.useSeed"]
@@ -87,5 +106,14 @@ final class SwiftBiomesUITests: XCTestCase {
         field.click()
         field.typeKey("a", modifierFlags: .command)
         field.typeText(value)
+    }
+
+    @MainActor
+    private func selectMenuItem(_ title: String, in popup: XCUIElement, app: XCUIApplication) {
+        XCTAssertTrue(popup.waitForExistence(timeout: 5))
+        popup.click()
+        let item = app.menuItems[title].firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        item.click()
     }
 }

@@ -30,6 +30,15 @@ The first local version will implement the smallest complete Qt-compatible flow:
 
 The implementation deliberately does not add Qt's 48-bit generators, seed-list/session files, compound/reference conditions, Lua, structure filters, or an unbounded full-seed-space search. Those are separate product and performance decisions, not implied by this first slice.
 
+## Follow-up scope (2026-07-15)
+
+User feedback expanded the local workflow while keeping the Qt semantics above as the reference:
+
+- Search settings can select any Minecraft version already supported by SwiftBiomes and any dimension.
+- A search can contain multiple biome and structure conditions. As in the Qt condition list's default path, every listed condition must match; OR/NOT gates remain out of scope.
+- A biome condition checks one exact X/Z coordinate. A structure condition requires at least one viable structure inside a centered square area.
+- Qt's structure-condition coordinate limit of 30,000,000 blocks is retained. Accounts, network services, seed files, Lua, and other advanced Qt filters remain out of scope.
+
 ## UI boundary
 
 The existing AppKit split-view, sidebar styling, system typography, and SF Symbols remain the visual source of truth. Seed search will use native controls and a focused sheet so the map remains primary, with explicit labels, keyboard-default actions, clear progress, and no new visual language.

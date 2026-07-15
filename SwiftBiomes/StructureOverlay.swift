@@ -79,7 +79,7 @@ enum StructureOverlayType: String, CaseIterable, Sendable {
         }
     }
 
-    var coreType: StructureType {
+    nonisolated var coreType: StructureType {
         switch self {
         case .village: return .village
         case .desertPyramid: return .desertPyramid

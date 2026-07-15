@@ -432,6 +432,114 @@ struct SwiftBiomesTests {
         #expect(SeedFinderResult(seed: -1).lower48Hex == "ffffffffffff")
     }
 
+    @Test func seedFinderStructureCatalogUsesVersionAndDimension() throws {
+        let version18 = try #require(MinecraftVersionOption.supported.first { $0.label == "1.18" })
+        let version19 = try #require(MinecraftVersionOption.supported.first { $0.label == "1.19" })
+
+        let overworld18 = SeedFinderCatalog.structures(for: version18, dimension: .overworld)
+        let overworld19 = SeedFinderCatalog.structures(for: version19, dimension: .overworld)
+        let nether19 = SeedFinderCatalog.structures(for: version19, dimension: .nether)
+
+        #expect(overworld18.contains(SeedFinderStructureOption(type: .village)))
+        #expect(!overworld18.contains(SeedFinderStructureOption(type: .ancientCity)))
+        #expect(overworld19.contains(SeedFinderStructureOption(type: .ancientCity)))
+        #expect(nether19.contains(SeedFinderStructureOption(type: .fortress)))
+        #expect(!nether19.contains(SeedFinderStructureOption(type: .village)))
+    }
+
+    @Test func seedFinderRequiresEveryBiomeCondition() throws {
+        let service = CubiomesBiomeService()
+        let origin = try service.biome(for: .init(settings: .sample, x: 0, z: 0))
+        let distant = try service.biome(for: .init(settings: .sample, x: 2048, z: 2048))
+        let request = SeedFinderRequest(
+            settings: .sample,
+            startSeed: 262,
+            endSeed: 262,
+            conditions: [
+                .biome(.init(
+                    biome: SeedFinderBiomeOption(id: origin.id, name: origin.name),
+                    x: origin.x,
+                    z: origin.z
+                )),
+                .biome(.init(
+                    biome: SeedFinderBiomeOption(id: distant.id, name: distant.name),
+                    x: distant.x,
+                    z: distant.z
+                ))
+            ]
+        )
+
+        let results = try CubiomesSeedFinder().findSeeds(
+            for: request,
+            cancellationToken: CubiomesSearchCancellationToken()
+        ) { _ in }
+
+        #expect(results.map(\.seed) == [262])
+        #expect(try request.queryConditions().count == 2)
+    }
+
+    @Test func seedFinderMatchesViableStructureInsideArea() throws {
+        let searchRect = StructureRect(minX: -8192, minZ: -8192, maxX: 8192, maxZ: 8192)
+        let locations = try CubiomesCore.structures(
+            version: WorldSettings.sample.version.version,
+            seed: WorldSettings.sample.seed,
+            dimension: WorldSettings.sample.dimension.dimension,
+            types: [.village],
+            rect: searchRect
+        )
+        let viableLocations = locations.filter { $0.isViable }
+        let village = try #require(viableLocations.first)
+        let request = SeedFinderRequest(
+            settings: .sample,
+            startSeed: 262,
+            endSeed: 262,
+            conditions: [
+                .structure(SeedFinderStructureCondition(
+                    structure: SeedFinderStructureOption(type: .village),
+                    centerX: village.blockX,
+                    centerZ: village.blockZ,
+                    radius: 32
+                ))
+            ]
+        )
+
+        let results = try CubiomesSeedFinder().findSeeds(
+            for: request,
+            cancellationToken: CubiomesSearchCancellationToken()
+        ) { _ in }
+
+        #expect(results.map(\.seed) == [262])
+    }
+
+    @Test func seedFinderValidatesConditionListAndStructureArea() {
+        let empty = SeedFinderRequest(
+            settings: .sample,
+            startSeed: 0,
+            endSeed: 1,
+            conditions: []
+        )
+        let invalidRadius = SeedFinderRequest(
+            settings: .sample,
+            startSeed: 0,
+            endSeed: 1,
+            conditions: [
+                .structure(SeedFinderStructureCondition(
+                    structure: SeedFinderStructureOption(type: .village),
+                    centerX: 0,
+                    centerZ: 0,
+                    radius: 0
+                ))
+            ]
+        )
+
+        #expect(throws: SeedFinderError.missingConditions) {
+            _ = try empty.validatedSeedCount()
+        }
+        #expect(throws: SeedFinderError.invalidStructureRadius) {
+            _ = try invalidRadius.validatedSeedCount()
+        }
+    }
+
 }
 
 private func tileKey(tileX: Int) -> BiomeMapTileKey {

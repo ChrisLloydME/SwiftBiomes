@@ -60,6 +60,16 @@ final class SidebarViewController: NSViewController {
         seedField.stringValue = "\(seed)"
     }
 
+    func setWorld(_ settings: WorldSettings) {
+        seedField.stringValue = "\(settings.seed)"
+        if let versionIndex = MinecraftVersionOption.supported.firstIndex(of: settings.version) {
+            versionPopup.selectItem(at: versionIndex)
+        }
+        dimensionControl.selectedSegment = DimensionOption.allCases.firstIndex(of: settings.dimension) ?? 0
+        updateVisibleStructureTypes()
+        publishSelectedStructureTypes()
+    }
+
     func focusCoordinateFields() {
         view.window?.makeFirstResponder(xField)
     }
